@@ -47,6 +47,7 @@
 
       <!-- Viewer Area -->
       <main class="viewer-area">
+        <!-- Welcome Screen (shown when no ZIP loaded) -->
         <div id="welcomeScreen" class="welcome-screen">
           <div class="welcome-content">
             <svg class="welcome-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -63,7 +64,9 @@
           </div>
         </div>
 
+        <!-- Viewer Content (shown when ZIP loaded) -->
         <div id="viewerContent" class="viewer-content hidden">
+          <!-- Viewer Header with Exam Info and Navigation -->
           <div class="viewer-header">
             <div class="exam-info">
               <h2 id="currentExamName">Exam Name</h2>
@@ -86,6 +89,7 @@
             </div>
           </div>
 
+          <!-- Question and Comment Container -->
           <div class="question-container">
             <div class="question-image-wrapper">
               <img id="questionImage" src="" alt="Question" class="question-image">
@@ -104,6 +108,54 @@
           </div>
         </div>
       </main>
+    </div>
+  </div>
+
+  <!-- Fullscreen Image Modal -->
+  <div id="fullscreenModal" class="fullscreen-modal">
+    <div class="fs-container">
+      <!-- Image Area with Navigation -->
+      <div class="fs-main-area">
+        <button id="fsPrevBtn" class="fs-nav-btn prev">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        
+        <div class="fs-image-wrapper">
+          <img id="fullscreenImage" src="" alt="Fullscreen" class="fs-image">
+        </div>
+
+        <button id="fsNextBtn" class="fs-nav-btn next">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Comment Sidebar (Collapsible) -->
+      <div id="fsCommentSidebar" class="fs-sidebar">
+        <div class="fs-sidebar-header">
+          <h3>Comments</h3>
+        </div>
+        <div id="fsCommentContent" class="fs-sidebar-content">
+          <!-- Comments will be injected here -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Floating Controls -->
+    <div class="fs-controls">
+      <button id="fsToggleComments" class="fs-control-btn" title="Toggle Comments">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+        </svg>
+      </button>
+      <button id="fullscreenClose" class="fs-control-btn close" title="Close (ESC)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
     </div>
   </div>
 

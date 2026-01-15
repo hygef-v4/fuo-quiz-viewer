@@ -16,7 +16,8 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "electron": "^28.1.0"
+    "electron": "^28.1.0",
+    "electron-reload": "^2.0.0-alpha.1"
   },
   "dependencies": {
     "adm-zip": "^0.5.10"

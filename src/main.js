@@ -3,6 +3,14 @@ const path = require('path');
 const AdmZip = require('adm-zip');
 const fs = require('fs');
 
+// Enable hot reload in development mode
+if (process.argv.includes('--dev')) {
+  require('electron-reload')(__dirname, {
+    electron: path.join(__dirname, '..', 'node_modules', '.bin', 'electron'),
+    hardResetMethod: 'exit'
+  });
+}
+
 let mainWindow;
 
 function createWindow() {
