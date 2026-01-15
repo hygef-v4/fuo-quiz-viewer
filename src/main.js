@@ -89,7 +89,8 @@ ipcMain.handle('load-zip-file', async (event, zipPath) => {
       if (!exams[examFolder]) {
         exams[examFolder] = {
           name: examFolder,
-          questions: []
+          questions: [],
+          attachments: []
         };
       }
       
@@ -142,6 +143,17 @@ ipcMain.handle('load-zip-file', async (event, zipPath) => {
           const commentData = entry.getData();
           question.comment = commentData.toString('utf8');
         }
+      } else {
+        // Handle attachments (anything else)
+        // Skip upload files here too just in case
+        if (fileName.includes('_upload')) return;
+        
+        // Skip hidden files or system files if necessary, but generally include others
+        exams[examFolder].attachments.push({
+          name: fileName,
+          path: entry.entryName,
+          size: entry.header.size
+        });
       }
     });
     
@@ -159,5 +171,35 @@ ipcMain.handle('load-zip-file', async (event, zipPath) => {
       success: false,
       error: error.message
     };
+  }
+});
+
+// Handle saving attachments
+ipcMain.handle('save-attachment', async (e, { zipPath, entryPath }) => {
+  try {
+    const zip = new AdmZip(zipPath);
+    const entry = zip.getEntry(entryPath);
+    
+    if (!entry) {
+      throw new Error('Attachment not found in ZIP');
+    }
+    
+    const fileName = entry.entryName.split('/').pop();
+    
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: 'Save Attachment',
+      defaultPath: fileName,
+      buttonLabel: 'Save'
+    });
+    
+    if (result.canceled || !result.filePath) {
+      return { success: false, canceled: true };
+    }
+    
+    fs.writeFileSync(result.filePath, entry.getData());
+    
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
   }
 });

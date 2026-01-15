@@ -1,5 +1,6 @@
 // State management
 let currentData = null;
+let currentZipPath = null;
 let currentExamIndex = 0;
 let currentQuestionIndex = 0;
 
@@ -19,6 +20,7 @@ const viewerContent = document.getElementById('viewerContent');
 const examList = document.getElementById('examList');
 const examCount = document.getElementById('examCount');
 const currentExamName = document.getElementById('currentExamName');
+const examAttachments = document.getElementById('examAttachments');
 const questionCount = document.getElementById('questionCount');
 const questionIndicator = document.getElementById('questionIndicator');
 const questionImage = document.getElementById('questionImage');
@@ -158,6 +160,7 @@ async function loadZip(zipPath) {
     }
     
     currentData = result.exams;
+    currentZipPath = zipPath;
     currentExamIndex = 0;
     currentQuestionIndex = 0;
     
@@ -209,6 +212,24 @@ function showExam(examIndex) {
   // Update exam info
   currentExamName.textContent = exam.name;
   questionCount.textContent = `${exam.questions.length} question${exam.questions.length !== 1 ? 's' : ''}`;
+  
+  // Render attachments
+  examAttachments.innerHTML = '';
+  if (exam.attachments && exam.attachments.length > 0) {
+    exam.attachments.forEach(att => {
+      const el = document.createElement('div');
+      el.className = 'attachment-item';
+      el.title = `Download ${att.name} (${formatBytes(att.size)})`;
+      el.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+        </svg>
+        <span>${att.name}</span>
+      `;
+      el.addEventListener('click', () => saveExamAttachment(att.path));
+      examAttachments.appendChild(el);
+    });
+  }
   
   // Update active state in sidebar
   document.querySelectorAll('.exam-item').forEach((item, index) => {
@@ -554,4 +575,29 @@ function updateImageTransform() {
   currentTranslateY = Math.min(limitY, Math.max(-limitY, currentTranslateY));
   
   fullscreenImage.style.transform = `translate(${currentTranslateX}px, ${currentTranslateY}px) scale(${zoomLevel})`;
+}
+
+async function saveExamAttachment(entryPath) {
+  if (!currentZipPath) return;
+  
+  try {
+    const result = await window.electronAPI.saveAttachment(currentZipPath, entryPath);
+    if (!result.success && !result.canceled) {
+      alert(`Failed to save attachment: ${result.error}`);
+    }
+  } catch (error) {
+    alert(`Error: ${error.message}`);
+  }
+}
+
+function formatBytes(bytes, decimals = 2) {
+  if (!+bytes) return '0 Bytes';
+
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
 }

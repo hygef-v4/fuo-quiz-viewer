@@ -387,6 +387,40 @@ body {
   font-weight: 600;
 }
 
+.exam-attachments {
+  display: flex;
+  gap: 0.5rem;
+  margin-left: 1rem;
+  overflow-x: auto;
+  max-width: 400px;
+}
+
+.attachment-item {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  transition: var(--transition);
+  white-space: nowrap;
+}
+
+.attachment-item:hover {
+  background: var(--bg-hover);
+  border-color: var(--primary);
+  color: var(--text-primary);
+}
+
+.attachment-item svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
 .question-nav {
   display: flex;
   align-items: center;
