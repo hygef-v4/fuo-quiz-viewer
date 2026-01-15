@@ -3,9 +3,17 @@ let currentData = null;
 let currentExamIndex = 0;
 let currentQuestionIndex = 0;
 
+// Zoom state
+let zoomLevel = 1;
+let isDragging = false;
+let currentTranslateX = 0;
+let currentTranslateY = 0;
+let startDragX = 0;
+let startDragY = 0;
+
 // DOM elements
 const openZipBtn = document.getElementById('openZipBtn');
-const welcomeOpenBtn = document.getElementById('welcomeOpenBtn');
+const dropZone = document.getElementById('dropZone'); // New drop zone
 const welcomeScreen = document.getElementById('welcomeScreen');
 const viewerContent = document.getElementById('viewerContent');
 const examList = document.getElementById('examList');
@@ -29,8 +37,24 @@ const fsCommentSidebar = document.getElementById('fsCommentSidebar');
 const fsCommentContent = document.getElementById('fsCommentContent');
 
 // Event listeners
-openZipBtn.addEventListener('click', handleOpenZip);
-welcomeOpenBtn.addEventListener('click', handleOpenZip);
+openZipBtn.addEventListener('click', handleSelectZip);
+dropZone.addEventListener('click', handleSelectZip); // Click to select works for drop zone too
+
+// Drag and drop listeners
+dropZone.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  dropZone.classList.add('drag-over');
+});
+
+dropZone.addEventListener('dragleave', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  dropZone.classList.remove('drag-over');
+});
+
+dropZone.addEventListener('drop', handleDrop);
+
 prevQuestionBtn.addEventListener('click', () => navigateQuestion(-1));
 nextQuestionBtn.addEventListener('click', () => navigateQuestion(1));
 
@@ -47,6 +71,13 @@ fsNextBtn.addEventListener('click', (e) => {
   e.stopPropagation();
   navigateQuestion(1);
 });
+
+// Zoom and Pan listeners
+fullscreenImage.addEventListener('wheel', handleZoom);
+fullscreenImage.addEventListener('mousedown', handleDragStart);
+fullscreenImage.addEventListener('dblclick', handleDoubleClick);
+document.addEventListener('mousemove', handleDragMove);
+document.addEventListener('mouseup', handleDragEnd);
 
 fsToggleComments.addEventListener('click', (e) => {
   e.stopPropagation();
@@ -83,14 +114,36 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-async function handleOpenZip() {
+async function handleSelectZip() {
   try {
     const zipPath = await window.electronAPI.selectZipFile();
-    
-    if (!zipPath) {
-      return; // User cancelled
+    if (zipPath) {
+      await loadZip(zipPath);
     }
-    
+  } catch (error) {
+    alert(`Error: ${error.message}`);
+  }
+}
+
+async function handleDrop(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  dropZone.classList.remove('drag-over');
+  
+  const files = e.dataTransfer.files;
+  if (files.length > 0) {
+    const file = files[0];
+    // In Electron renderer, File object has a 'path' property
+    if (file.path && file.path.toLowerCase().endsWith('.zip')) {
+      await loadZip(file.path);
+    } else {
+      alert('Please drop a valid .zip file.');
+    }
+  }
+}
+
+async function loadZip(zipPath) {
+  try {
     const result = await window.electronAPI.loadZipFile(zipPath);
     
     if (!result.success) {
@@ -211,6 +264,11 @@ function showQuestion(questionIndex) {
     if (fullscreenModal.classList.contains('active')) {
       fullscreenImage.src = '';
     }
+  }
+
+  // Reset zoom when showing new question if in fullscreen (or preemptively)
+  if (fullscreenModal.classList.contains('active')) {
+    resetZoom();
   }
   
   // Update comment with formatted display
@@ -357,6 +415,9 @@ function openFullscreen() {
     fsCommentContent.innerHTML = commentContent.innerHTML;
     fullscreenModal.classList.add('active');
     
+    // Reset zoom state on open
+    resetZoom();
+    
     // Update button states
     const exam = currentData[currentExamIndex];
     fsPrevBtn.disabled = currentQuestionIndex === 0;
@@ -382,4 +443,105 @@ function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
+}
+
+// Zoom and Pan handlers
+function handleZoom(e) {
+  if (!fullscreenModal.classList.contains('active')) return;
+  e.preventDefault();
+  
+  // Zoom speed
+  const delta = e.deltaY * -0.002;
+  const newZoom = Math.min(Math.max(1, zoomLevel + delta), 5); // Min 1x, Max 5x
+  
+  // If zooming out to 1, reset translate
+  if (newZoom === 1) {
+    currentTranslateX = 0;
+    currentTranslateY = 0;
+  }
+  
+  zoomLevel = newZoom;
+  updateImageTransform();
+}
+
+function handleDragStart(e) {
+  if (zoomLevel <= 1) return; // Only drag if zoomed
+  e.preventDefault();
+  isDragging = true;
+  startDragX = e.clientX - currentTranslateX;
+  startDragY = e.clientY - currentTranslateY;
+  fullscreenImage.style.cursor = 'grabbing';
+}
+
+function handleDragMove(e) {
+  if (!isDragging) return;
+  e.preventDefault();
+  currentTranslateX = e.clientX - startDragX;
+  currentTranslateY = e.clientY - startDragY;
+  updateImageTransform();
+}
+
+function handleDragEnd() {
+  isDragging = false;
+  fullscreenImage.style.cursor = 'grab';
+}
+
+function handleDoubleClick(e) {
+  if (zoomLevel > 1) {
+    resetZoom();
+  } else {
+    // Zoom into point logic
+    const container = fullscreenImage.parentElement;
+    const rect = container.getBoundingClientRect();
+    
+    // Mouse position relative to center (0,0) of the viewport
+    // This works because the image is centered by default and transform-origin is center
+    const mouseX = e.clientX - rect.left - rect.width / 2;
+    const mouseY = e.clientY - rect.top - rect.height / 2;
+    
+    const newZoom = 2.5; // Set zoom level (e.g., 2.5x)
+    
+    // Calculate new translation to keep the clicked point stationary
+    // Formula derived from: (Point - T_old)/S_old * S_new + T_new = Point
+    // Since starting from S=1, T=0: T_new = Point - Point * S_new = -Point * (S_new - 1)
+    currentTranslateX = -mouseX * (newZoom - 1);
+    currentTranslateY = -mouseY * (newZoom - 1);
+    
+    zoomLevel = newZoom;
+    updateImageTransform();
+    fullscreenImage.style.cursor = 'grab';
+  }
+}
+
+function resetZoom() {
+  zoomLevel = 1;
+  currentTranslateX = 0;
+  currentTranslateY = 0;
+  isDragging = false;
+  updateImageTransform();
+  fullscreenImage.style.cursor = 'grab';
+}
+
+function updateImageTransform() {
+  const container = fullscreenImage.parentElement;
+  
+  // Calculate displayed dimensions
+  const imageWidth = fullscreenImage.offsetWidth * zoomLevel;
+  const imageHeight = fullscreenImage.offsetHeight * zoomLevel;
+  
+  // Calculate container dimensions (viewport)
+  const containerWidth = container.clientWidth;
+  const containerHeight = container.clientHeight;
+  
+  // Calculate boundaries
+  // If image is larger than container, we can pan (w - cw) / 2 in either direction
+  // If image is smaller, limit is 0 (keep centered)
+  const limitX = Math.max(0, (imageWidth - containerWidth) / 2);
+  const limitY = Math.max(0, (imageHeight - containerHeight) / 2);
+  
+  // Clamp translate values
+  currentTranslateX = Math.min(limitX, Math.max(-limitX, currentTranslateX));
+  currentTranslateY = Math.min(limitY, Math.max(-limitY, currentTranslateY));
+  
+  fullscreenImage.style.transform = `translate(${currentTranslateX}px, ${currentTranslateY}px) scale(${zoomLevel})`;
 }
