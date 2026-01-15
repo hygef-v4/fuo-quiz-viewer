@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FUO Quiz Viewer</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-content">
+        <h1 class="app-title">
+          <svg class="title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          FUO Quiz Viewer
+        </h1>
+        <button id="openZipBtn" class="btn-primary">
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+          </svg>
+          Open ZIP File
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <!-- Sidebar -->
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <h2>Exams</h2>
+          <span id="examCount" class="count-badge">0</span>
+        </div>
+        <div id="examList" class="exam-list">
+          <div class="empty-state">
+            <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+            </svg>
+            <p>No exams loaded</p>
+            <p class="empty-hint">Open a ZIP file to get started</p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Viewer Area -->
+      <main class="viewer-area">
+        <div id="welcomeScreen" class="welcome-screen">
+          <div class="welcome-content">
+            <svg class="welcome-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <h2>Welcome to FUO Quiz Viewer</h2>
+            <p>Open a ZIP file containing exam folders to view questions and comments</p>
+            <button id="welcomeOpenBtn" class="btn-primary btn-large">
+              <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+              </svg>
+              Open ZIP File
+            </button>
+          </div>
+        </div>
+
+        <div id="viewerContent" class="viewer-content hidden">
+          <div class="viewer-header">
+            <div class="exam-info">
+              <h2 id="currentExamName">Exam Name</h2>
+              <span id="questionCount" class="count-badge">0 questions</span>
+            </div>
+            <div class="question-nav">
+              <button id="prevQuestionBtn" class="btn-nav" disabled>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+                Previous
+              </button>
+              <span id="questionIndicator" class="question-indicator">1 / 1</span>
+              <button id="nextQuestionBtn" class="btn-nav" disabled>
+                Next
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="question-container">
+            <div class="question-image-wrapper">
+              <img id="questionImage" src="" alt="Question" class="question-image">
+            </div>
+            <div class="comment-section">
+              <div class="comment-header">
+                <svg class="comment-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                </svg>
+                <h3>Comment</h3>
+              </div>
+              <div id="commentContent" class="comment-content">
+                <p class="no-comment">No comment available for this question</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
