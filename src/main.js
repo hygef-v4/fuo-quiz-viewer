@@ -4,11 +4,14 @@ const AdmZip = require('adm-zip');
 const fs = require('fs');
 
 // Enable hot reload in development mode
-if (process.argv.includes('--dev')) {
-  require('electron-reload')(__dirname, {
-    electron: path.join(__dirname, '..', 'node_modules', '.bin', 'electron'),
-    hardResetMethod: 'exit'
-  });
+// Enable hot reload in development mode
+if (!app.isPackaged) {
+  try {
+    require('electron-reload')(__dirname, {
+      electron: path.join(__dirname, '..', 'node_modules', '.bin', 'electron'),
+      hardResetMethod: 'exit'
+    });
+  } catch (_) {}
 }
 
 let mainWindow;
@@ -29,7 +32,7 @@ function createWindow() {
   mainWindow.loadFile(path.join(__dirname, 'index.html'));
 
   // Open DevTools in development mode
-  if (process.argv.includes('--dev')) {
+  if (!app.isPackaged) {
     mainWindow.webContents.openDevTools();
   }
 }

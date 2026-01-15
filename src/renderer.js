@@ -30,6 +30,7 @@ const nextQuestionBtn = document.getElementById('nextQuestionBtn');
 const fullscreenModal = document.getElementById('fullscreenModal');
 const fullscreenImage = document.getElementById('fullscreenImage');
 const fullscreenClose = document.getElementById('fullscreenClose');
+const fsQuestionIndicator = document.getElementById('fsQuestionIndicator');
 const fsPrevBtn = document.getElementById('fsPrevBtn');
 const fsNextBtn = document.getElementById('fsNextBtn');
 const fsToggleComments = document.getElementById('fsToggleComments');
@@ -235,14 +236,16 @@ function showQuestion(questionIndex) {
   // Update question indicator
   questionIndicator.textContent = `${questionIndex + 1} / ${exam.questions.length}`;
   
-  // Update navigation buttons
-  prevQuestionBtn.disabled = questionIndex === 0;
-  nextQuestionBtn.disabled = questionIndex === exam.questions.length - 1;
+  // Update navigation buttons - Looping enabled, so only disable if 1 question
+  const isSingleQuestion = exam.questions.length <= 1;
+  prevQuestionBtn.disabled = isSingleQuestion;
+  nextQuestionBtn.disabled = isSingleQuestion;
   
-  // Update Fullscreen buttons
+  // Update Fullscreen buttons and indicator
   if (fullscreenModal.classList.contains('active')) {
-    fsPrevBtn.disabled = questionIndex === 0;
-    fsNextBtn.disabled = questionIndex === exam.questions.length - 1;
+    fsPrevBtn.disabled = isSingleQuestion;
+    fsNextBtn.disabled = isSingleQuestion;
+    fsQuestionIndicator.textContent = `${questionIndex + 1} / ${exam.questions.length}`;
   }
   
   // Update question image
@@ -418,10 +421,12 @@ function openFullscreen() {
     // Reset zoom state on open
     resetZoom();
     
-    // Update button states
+    // Update button states and indicator
     const exam = currentData[currentExamIndex];
-    fsPrevBtn.disabled = currentQuestionIndex === 0;
-    fsNextBtn.disabled = currentQuestionIndex === exam.questions.length - 1;
+    const isSingleQuestion = exam.questions.length <= 1;
+    fsPrevBtn.disabled = isSingleQuestion;
+    fsNextBtn.disabled = isSingleQuestion;
+    fsQuestionIndicator.textContent = `${currentQuestionIndex + 1} / ${exam.questions.length}`;
   }
 }
 
@@ -432,11 +437,16 @@ function closeFullscreen() {
 
 function navigateQuestion(direction) {
   const exam = currentData[currentExamIndex];
-  const newIndex = currentQuestionIndex + direction;
+  let newIndex = currentQuestionIndex + direction;
   
-  if (newIndex >= 0 && newIndex < exam.questions.length) {
-    showQuestion(newIndex);
+  // Handle looping
+  if (newIndex < 0) {
+    newIndex = exam.questions.length - 1;
+  } else if (newIndex >= exam.questions.length) {
+    newIndex = 0;
   }
+  
+  showQuestion(newIndex);
 }
 
 function escapeHtml(text) {

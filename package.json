@@ -39,12 +39,7 @@
     ],
     "compression": "maximum",
     "win": {
-      "target": "nsis"
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "deleteAppDataOnUninstall": true
+      "target": "portable"
     }
   }
 }

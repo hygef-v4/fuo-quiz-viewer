@@ -736,6 +736,22 @@ body {
   height: 1.5rem;
 }
 
+.fs-indicator {
+  background: rgba(30, 41, 59, 0.8);
+  color: var(--text-primary);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border);
+  padding: 0 1rem;
+  height: 3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+}
+
 /* Navigation Buttons */
 .fs-nav-btn {
   position: absolute;
