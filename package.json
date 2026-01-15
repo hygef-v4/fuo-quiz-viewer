@@ -1,6 +1,6 @@
 {
   "name": "fuo-quiz-viewer",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Electron app for viewing quiz files from zip archives",
   "main": "src/main.js",
   "scripts": {
@@ -22,7 +22,8 @@
     "electron-reload": "^2.0.0-alpha.1"
   },
   "dependencies": {
-    "adm-zip": "^0.5.10"
+    "adm-zip": "^0.5.10",
+    "electron-updater": "^6.7.3"
   },
   "build": {
     "appId": "com.fuo.quizviewer",
@@ -45,6 +46,13 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "deleteAppDataOnUninstall": true
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "hygef-v4",
+        "repo": "fuo-quiz-viewer"
+      }
+    ]
   }
 }

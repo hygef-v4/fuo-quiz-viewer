@@ -203,3 +203,64 @@ ipcMain.handle('save-attachment', async (e, { zipPath, entryPath }) => {
     return { success: false, error: error.message };
   }
 });
+
+// --- Auto Updater Logic ---
+const { autoUpdater } = require('electron-updater');
+
+// Optional: Configure logging
+// autoUpdater.logger = require("electron-log");
+// autoUpdater.logger.transports.file.level = "info";
+
+function sendStatusToWindow(text) {
+  if (mainWindow) {
+    mainWindow.webContents.send('update-message', text);
+  }
+}
+
+autoUpdater.on('checking-for-update', () => {
+  sendStatusToWindow('Checking for updates...');
+});
+
+autoUpdater.on('update-available', (info) => {
+  sendStatusToWindow('Update available.');
+  if (mainWindow) {
+    mainWindow.webContents.send('update-available', info);
+  }
+});
+
+autoUpdater.on('update-not-available', (info) => {
+  sendStatusToWindow('Update not available.');
+});
+
+autoUpdater.on('error', (err) => {
+  sendStatusToWindow('Error in auto-updater. ' + err);
+});
+
+autoUpdater.on('download-progress', (progressObj) => {
+  let log_message = "Download speed: " + progressObj.bytesPerSecond;
+  log_message = log_message + ' - Downloaded ' + progressObj.percent + '%';
+  log_message = log_message + ' (' + progressObj.transferred + "/" + progressObj.total + ')';
+  sendStatusToWindow(log_message);
+});
+
+autoUpdater.on('update-downloaded', (info) => {
+  sendStatusToWindow('Update downloaded');
+  if (mainWindow) {
+    mainWindow.webContents.send('update-downloaded', info);
+  }
+});
+
+ipcMain.handle('check-for-update', () => {
+  if (!app.isPackaged) return; // Don't verify in dev
+  autoUpdater.checkForUpdatesAndNotify();
+});
+
+ipcMain.handle('restart-app', () => {
+  autoUpdater.quitAndInstall();
+});
+
+app.on('ready', () => {
+  if (app.isPackaged) {
+    autoUpdater.checkForUpdatesAndNotify();
+  }
+});

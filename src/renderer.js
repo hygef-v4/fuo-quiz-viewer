@@ -601,3 +601,28 @@ function formatBytes(bytes, decimals = 2) {
 
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
 }
+
+// Auto Updater UI Handler
+const updateNotification = document.getElementById('updateNotification');
+const restartBtn = document.getElementById('restartBtn');
+
+if (restartBtn) {
+  restartBtn.addEventListener('click', () => {
+    window.electronAPI.restartApp();
+  });
+}
+
+// Listen for updates
+window.electronAPI.onUpdateAvailable(() => {
+  // Can show a different message or just wait for download
+  console.log('Update available');
+});
+
+window.electronAPI.onUpdateDownloaded(() => {
+  if (updateNotification) {
+    updateNotification.classList.remove('hidden');
+  }
+});
+
+// Check for updates on load
+window.electronAPI.checkForUpdate();
