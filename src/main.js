@@ -95,6 +95,9 @@ ipcMain.handle('load-zip-file', async (event, zipPath) => {
       
       // Parse question files
       if (fileName.endsWith('.webp') || fileName.endsWith('.png') || fileName.endsWith('.jpg') || fileName.endsWith('.jpeg')) {
+        // Skip upload files
+        if (fileName.includes('_upload')) return;
+
         // Extract question number from filename
         const match = fileName.match(/^(\d+)_/);
         if (match) {
