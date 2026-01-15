@@ -5,7 +5,8 @@
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
-    "dev": "electron . --dev"
+    "dev": "electron . --dev",
+    "build": "electron-builder"
   },
   "keywords": [
     "electron",
@@ -17,9 +18,33 @@
   "license": "MIT",
   "devDependencies": {
     "electron": "^28.1.0",
+    "electron-builder": "^26.4.0",
     "electron-reload": "^2.0.0-alpha.1"
   },
   "dependencies": {
     "adm-zip": "^0.5.10"
+  },
+  "build": {
+    "appId": "com.fuo.quizviewer",
+    "productName": "FUO Quiz Viewer",
+    "asar": true,
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "package.json",
+      "src/**/*",
+      "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
+      "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}"
+    ],
+    "compression": "maximum",
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": true
+    }
   }
 }
