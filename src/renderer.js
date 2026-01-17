@@ -711,6 +711,19 @@ window.electronAPI.onUpdateDownloaded(() => {
 // Check for updates on load
 window.electronAPI.checkForUpdate();
 
+// Display App Version
+(async () => {
+  try {
+    const version = await window.electronAPI.getAppVersion();
+    const versionEl = document.getElementById('appVersion');
+    if (versionEl) {
+      versionEl.textContent = `v${version}`;
+    }
+  } catch (error) {
+    console.error('Failed to get app version:', error);
+  }
+})();
+
 // --- Drive Explorer Logic ---
 const driveModal = document.getElementById('driveModal');
 const openDriveBtn = document.getElementById('openDriveBtn');

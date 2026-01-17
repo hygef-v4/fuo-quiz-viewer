@@ -244,6 +244,11 @@ ipcMain.handle('drive-list-files', async (event, folderId) => {
   });
 });
 
+// Get app version
+ipcMain.handle('get-app-version', () => {
+  return app.getVersion();
+});
+
 ipcMain.handle('drive-download-file', async (event, { fileId, fileName }) => {
   return new Promise((resolve, reject) => {
     // Create exam-data folder in app directory

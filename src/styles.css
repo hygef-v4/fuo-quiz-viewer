@@ -83,6 +83,21 @@ body {
   stroke: var(--primary);
 }
 
+.app-version {
+  display: inline-block;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 0.25rem 0.75rem;
+  margin-left: 1rem;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.25) 0%, rgba(139, 92, 246, 0.25) 100%);
+  border: 1px solid rgba(59, 130, 246, 0.5);
+  color: var(--primary-light);
+  letter-spacing: 0.025em;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
+  cursor: default;
+}
+
 /* Buttons */
 .btn-primary {
   background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);

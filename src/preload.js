@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openExamFolder: () => ipcRenderer.invoke('open-exam-folder'),
   
   // Auto Updater
+  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   checkForUpdate: () => ipcRenderer.invoke('check-for-update'),
   restartApp: () => ipcRenderer.invoke('restart-app'),
   onUpdateAvailable: (callback) => ipcRenderer.on('update-available', (event, ...args) => callback(...args)),
