@@ -4,7 +4,6 @@ const AdmZip = require('adm-zip');
 const fs = require('fs');
 
 // Enable hot reload in development mode
-// Enable hot reload in development mode
 if (!app.isPackaged) {
   try {
     require('electron-reload')(__dirname, {
@@ -210,10 +209,7 @@ const https = require('https');
 // Helper function to decode base64 (like atob in browser)
 const decode64 = (str) => Buffer.from(str, 'base64').toString('utf-8');
 
-// Obfuscated credentials (base64 encoded)
-// Original: AIzaSyCWfea-6UbmJOmp77E00VOG6GTm-BY4Hog
 const ENCODED_API_KEY = 'QUl6YVN5Q1dmZWEtNlVibUpPbXA3N0UwMFZPRzZHVG0tQlk0SG9n';
-// Original: 1poGRYG23zTRnEXQhsaY1fKXy1Au-rb7D
 const ENCODED_FOLDER_ID = 'MXBvR1JZRzIzelRSbkVYUWhzYVkxZktYeTFBdS1yYjdE';
 
 // Decode credentials at runtime
@@ -509,15 +505,12 @@ autoUpdater.on('update-downloaded', (info) => {
 
 ipcMain.handle('check-for-update', () => {
   if (!app.isPackaged) {
-    console.log('Skipping update check in dev mode');
     return;
   }
-  console.log('Checking for updates...');
   autoUpdater.checkForUpdatesAndNotify();
 });
 
 ipcMain.handle('restart-app', () => {
-  console.log('Restarting app to install update...');
   autoUpdater.quitAndInstall(false, true);
 });
 

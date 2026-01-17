@@ -428,7 +428,6 @@ function formatCommentItem(comment) {
         <span class="comment-item-date">${escapeHtml(comment.date)}</span>
       </div>
       <div class="comment-item-content">${escapeHtml(comment.content)}</div>
-      ${comment.id ? `<div class="comment-item-id">ID: ${escapeHtml(comment.id)}</div>` : ''}
     </div>
   `;
 }
@@ -619,29 +618,11 @@ if (themeToggle) {
   });
 }
 
-// --- Theme Toggle ---
-const themeToggleBtn = document.getElementById('themeToggleBtn');
-const preferredTheme = localStorage.getItem('theme') || 'dark';
-
-// Apply saved theme on load
-if (preferredTheme === 'light') {
-  document.body.classList.add('light-mode');
-}
-
-if (themeToggleBtn) {
-  themeToggleBtn.addEventListener('click', () => {
-    document.body.classList.toggle('light-mode');
-    const currentTheme = document.body.classList.contains('light-mode') ? 'light' : 'dark';
-    localStorage.setItem('theme', currentTheme);
-  });
-}
-
 // Auto Updater UI Handler
 const updateNotification = document.getElementById('updateNotification');
 
 // Listen for update messages (errors, status)
 window.electronAPI.onUpdateMessage((text) => {
-  console.log('Update status:', text);
   if (text.startsWith('Error')) {
     // Show error in notification if possible, or alert
     if (updateNotification) {
@@ -669,7 +650,6 @@ if (restartBtn) {
 
 // Listen for updates
 window.electronAPI.onUpdateAvailable(() => {
-  console.log('Update available - showing notification');
   if (updateNotification) {
     updateNotification.classList.remove('hidden');
     // Update text to show downloading
@@ -695,7 +675,6 @@ window.electronAPI.onUpdateDownloadProgress((progressObj) => {
 
 window.electronAPI.onUpdateDownloaded(() => {
   updateDownloaded = true;
-  console.log('Update downloaded - ready to install');
   if (updateNotification) {
     updateNotification.classList.remove('hidden');
     // Update text to show ready
