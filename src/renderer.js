@@ -602,6 +602,40 @@ function formatBytes(bytes, decimals = 2) {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
 }
 
+// --- Theme Toggle ---
+const themeToggle = document.getElementById('themeToggle');
+const savedTheme = localStorage.getItem('theme') || 'dark';
+
+// Apply saved theme
+if (savedTheme === 'light') {
+  document.body.classList.add('light-mode');
+}
+
+if (themeToggle) {
+  themeToggle.addEventListener('click', () => {
+    document.body.classList.toggle('light-mode');
+    const theme = document.body.classList.contains('light-mode') ? 'light' : 'dark';
+    localStorage.setItem('theme', theme);
+  });
+}
+
+// --- Theme Toggle ---
+const themeToggleBtn = document.getElementById('themeToggleBtn');
+const preferredTheme = localStorage.getItem('theme') || 'dark';
+
+// Apply saved theme on load
+if (preferredTheme === 'light') {
+  document.body.classList.add('light-mode');
+}
+
+if (themeToggleBtn) {
+  themeToggleBtn.addEventListener('click', () => {
+    document.body.classList.toggle('light-mode');
+    const currentTheme = document.body.classList.contains('light-mode') ? 'light' : 'dark';
+    localStorage.setItem('theme', currentTheme);
+  });
+}
+
 // Auto Updater UI Handler
 const updateNotification = document.getElementById('updateNotification');
 const restartBtn = document.getElementById('restartBtn');

@@ -1459,3 +1459,63 @@ body {
   display: flex;
 }
 
+
+
+/* Theme Toggle Button */
+.theme-toggle {
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid var(--primary);
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  margin-left: 1rem;
+  transition: var(--transition);
+  position: relative;
+}
+
+.theme-toggle:hover {
+  background: var(--primary);
+  transform: scale(1.05);
+}
+
+.theme-toggle svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  stroke: var(--primary);
+  transition: var(--transition);
+  position: absolute;
+}
+
+.theme-toggle:hover svg {
+  stroke: white;
+}
+
+.theme-toggle .moon-icon {
+  display: none;
+}
+
+body.light-mode .theme-toggle .sun-icon {
+  display: none;
+}
+
+body.light-mode .theme-toggle .moon-icon {
+  display: block;
+}
+
+
+/* Light Mode Variables */
+body.light-mode {
+  --bg-primary: #f5f6f7;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #e9ebee;
+  --bg-hover: #dfe1e5;
+  --text-primary: #1c1e21;
+  --text-secondary: #4b4f56;
+  --text-muted: #606770;
+  --border: #dddfe2;
+  --shadow: rgba(0, 0, 0, 0.08);
+}
