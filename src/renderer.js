@@ -605,10 +605,13 @@ function formatBytes(bytes, decimals = 2) {
 // Auto Updater UI Handler
 const updateNotification = document.getElementById('updateNotification');
 const restartBtn = document.getElementById('restartBtn');
+let updateDownloaded = false;
 
 if (restartBtn) {
   restartBtn.addEventListener('click', () => {
-    window.electronAPI.restartApp();
+    if (updateDownloaded) {
+      window.electronAPI.restartApp();
+    }
   });
 }
 
@@ -617,12 +620,28 @@ window.electronAPI.onUpdateAvailable(() => {
   console.log('Update available - showing notification');
   if (updateNotification) {
     updateNotification.classList.remove('hidden');
+    // Update text to show downloading
+    const span = updateNotification.querySelector('span');
+    if (span) span.textContent = 'Downloading update...';
+    if (restartBtn) {
+      restartBtn.disabled = true;
+      restartBtn.textContent = 'Downloading...';
+    }
   }
 });
 
 window.electronAPI.onUpdateDownloaded(() => {
+  updateDownloaded = true;
+  console.log('Update downloaded - ready to install');
   if (updateNotification) {
     updateNotification.classList.remove('hidden');
+    // Update text to show ready
+    const span = updateNotification.querySelector('span');
+    if (span) span.textContent = 'New version ready!';
+    if (restartBtn) {
+      restartBtn.disabled = false;
+      restartBtn.textContent = 'Restart to Update';
+    }
   }
 });
 

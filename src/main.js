@@ -205,17 +205,25 @@ ipcMain.handle('save-attachment', async (e, { zipPath, entryPath }) => {
 });
 
 // --- Google Drive Integration ---
-require('dotenv').config();
+// Load environment variables with correct path for both dev and packaged app
+const envPath = app.isPackaged 
+  ? path.join(process.resourcesPath, '.env')
+  : path.join(__dirname, '..', '.env');
+
+require('dotenv').config({ path: envPath });
+
 const https = require('https');
-const DRIVE_API_KEY = process.env.DRIVE_API_KEY;
-const ROOT_FOLDER_ID = process.env.ROOT_FOLDER_ID;
+
+// Use fallback values if .env is not found (ensures app works in production)
+const API_KEY = process.env.DRIVE_API_KEY || 'AIzaSyCWfea-6UbmJOmp77E00VOG6GTm-BY4Hog';
+const FOLDER_ID = process.env.ROOT_FOLDER_ID || '1poGRYG23zTRnEXQhsaY1fKXy1Au-rb7D';
 
 ipcMain.handle('drive-list-files', async (event, folderId) => {
-  const targetFolderId = folderId || ROOT_FOLDER_ID;
+  const targetFolderId = folderId || FOLDER_ID;
   return new Promise((resolve, reject) => {
     // Add trashed=false to exclude deleted files
     const query = `'${targetFolderId}' in parents and trashed=false`;
-    const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&key=${DRIVE_API_KEY}&fields=files(id,name,mimeType,size,modifiedTime)&orderBy=folder,name`;
+    const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&key=${API_KEY}&fields=files(id,name,mimeType,size,modifiedTime)&orderBy=folder,name`;
     
     https.get(url, (res) => {
       let data = '';
@@ -256,7 +264,7 @@ ipcMain.handle('drive-download-file', async (event, { fileId, fileName }) => {
       return;
     }
     
-    const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${DRIVE_API_KEY}`;
+    const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${API_KEY}`;
     const file = fs.createWriteStream(destPath);
 
     https.get(url, (res) => {
@@ -320,7 +328,7 @@ ipcMain.handle('drive-search-files', async (event, { folderId, searchQuery }) =>
   const searchInFolder = (targetFolderId) => {
     return new Promise((resolve, reject) => {
       const query = `'${targetFolderId}' in parents and trashed=false`;
-      const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&key=${DRIVE_API_KEY}&fields=files(id,name,mimeType,size,modifiedTime)&pageSize=100`;
+      const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&key=${API_KEY}&fields=files(id,name,mimeType,size,modifiedTime)&pageSize=100`;
       
       https.get(url, (res) => {
         let data = '';
@@ -487,12 +495,17 @@ autoUpdater.on('update-downloaded', (info) => {
 });
 
 ipcMain.handle('check-for-update', () => {
-  if (!app.isPackaged) return; // Don't verify in dev
+  if (!app.isPackaged) {
+    console.log('Skipping update check in dev mode');
+    return;
+  }
+  console.log('Checking for updates...');
   autoUpdater.checkForUpdatesAndNotify();
 });
 
 ipcMain.handle('restart-app', () => {
-  autoUpdater.quitAndInstall();
+  console.log('Restarting app to install update...');
+  autoUpdater.quitAndInstall(false, true);
 });
 
 app.on('ready', () => {
