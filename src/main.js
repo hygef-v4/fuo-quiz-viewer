@@ -251,9 +251,8 @@ ipcMain.handle('get-app-version', () => {
 
 ipcMain.handle('drive-download-file', async (event, { fileId, fileName }) => {
   return new Promise((resolve, reject) => {
-    // Create exam-data folder in app directory
-    const appPath = app.isPackaged ? path.dirname(app.getPath('exe')) : app.getAppPath();
-    const examDataPath = path.join(appPath, 'exam-data');
+    // Create exam-data folder in userData directory (persists across updates)
+    const examDataPath = path.join(app.getPath('userData'), 'exam-data');
     
     // Create folder if it doesn't exist
     if (!fs.existsSync(examDataPath)) {
@@ -391,8 +390,7 @@ ipcMain.handle('drive-search-files', async (event, { folderId, searchQuery }) =>
 // Get list of downloaded exams
 ipcMain.handle('get-downloaded-exams', async () => {
   try {
-    const appPath = app.isPackaged ? path.dirname(app.getPath('exe')) : app.getAppPath();
-    const examDataPath = path.join(appPath, 'exam-data');
+    const examDataPath = path.join(app.getPath('userData'), 'exam-data');
     
     if (!fs.existsSync(examDataPath)) {
       return [];
@@ -442,8 +440,7 @@ ipcMain.handle('delete-exam', async (event, filePath) => {
 // Open exam-data folder
 ipcMain.handle('open-exam-folder', async () => {
   const { shell } = require('electron');
-  const appPath = app.isPackaged ? path.dirname(app.getPath('exe')) : app.getAppPath();
-  const examDataPath = path.join(appPath, 'exam-data');
+  const examDataPath = path.join(app.getPath('userData'), 'exam-data');
   
   // Create folder if it doesn't exist
   if (!fs.existsSync(examDataPath)) {

@@ -1,6 +1,6 @@
 {
   "name": "fuo-quiz-viewer",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Electron app for viewing quiz files from zip archives",
   "main": "src/main.js",
   "scripts": {
