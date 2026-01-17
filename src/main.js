@@ -205,9 +205,10 @@ ipcMain.handle('save-attachment', async (e, { zipPath, entryPath }) => {
 });
 
 // --- Google Drive Integration ---
+require('dotenv').config();
 const https = require('https');
-const DRIVE_API_KEY = 'AIzaSyCWfea-6UbmJOmp77E00VOG6GTm-BY4Hog';
-const ROOT_FOLDER_ID = '1zRpDvNzg_8XRAIkakg8W6FSo2WklY17O';
+const DRIVE_API_KEY = process.env.DRIVE_API_KEY;
+const ROOT_FOLDER_ID = process.env.ROOT_FOLDER_ID;
 
 ipcMain.handle('drive-list-files', async (event, folderId) => {
   const targetFolderId = folderId || ROOT_FOLDER_ID;

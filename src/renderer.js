@@ -651,7 +651,7 @@ if (openDriveBtn) {
     driveModal.classList.add('active');
     driveModal.classList.remove('hidden'); // Safety measure
     if (!currentDriveFolder) {
-      loadDriveFolder('1zRpDvNzg_8XRAIkakg8W6FSo2WklY17O', 'Source FPT');
+      loadDriveFolder('1poGRYG23zTRnEXQhsaY1fKXy1Au-rb7D', 'Source FPT');
     }
   });
 }
@@ -694,7 +694,7 @@ function switchTab(tab) {
       
       // Reload browse content
       if (!currentDriveFolder) {
-        loadDriveFolder('1zRpDvNzg_8XRAIkakg8W6FSo2WklY17O', 'Source FPT');
+        loadDriveFolder('1poGRYG23zTRnEXQhsaY1fKXy1Au-rb7D', 'Source FPT');
       } else {
         renderDriveFiles(currentDriveFiles);
       }
@@ -811,7 +811,7 @@ function filterDriveFiles(query) {
   }
   
   // Check if we're at root folder
-  const isRootFolder = currentDriveFolder === '1zRpDvNzg_8XRAIkakg8W6FSo2WklY17O';
+  const isRootFolder = currentDriveFolder === '1poGRYG23zTRnEXQhsaY1fKXy1Au-rb7D';
   
   if (isRootFolder) {
     // Global search from root - search all subfolders
@@ -837,7 +837,7 @@ async function performGlobalSearch(query) {
       driveSearchBtn.classList.add('loading');
     }
     
-    const results = await window.electronAPI.driveSearchFiles('1zRpDvNzg_8XRAIkakg8W6FSo2WklY17O', query);
+    const results = await window.electronAPI.driveSearchFiles('1poGRYG23zTRnEXQhsaY1fKXy1Au-rb7D', query);
     renderDriveFiles(results);
   } catch (error) {
     alert('Search failed: ' + error);
