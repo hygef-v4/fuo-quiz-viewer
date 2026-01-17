@@ -614,8 +614,10 @@ if (restartBtn) {
 
 // Listen for updates
 window.electronAPI.onUpdateAvailable(() => {
-  // Can show a different message or just wait for download
-  console.log('Update available');
+  console.log('Update available - showing notification');
+  if (updateNotification) {
+    updateNotification.classList.remove('hidden');
+  }
 });
 
 window.electronAPI.onUpdateDownloaded(() => {
