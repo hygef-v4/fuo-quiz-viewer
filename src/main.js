@@ -205,18 +205,20 @@ ipcMain.handle('save-attachment', async (e, { zipPath, entryPath }) => {
 });
 
 // --- Google Drive Integration ---
-// Load environment variables with correct path for both dev and packaged app
-const envPath = app.isPackaged 
-  ? path.join(process.resourcesPath, '.env')
-  : path.join(__dirname, '..', '.env');
-
-require('dotenv').config({ path: envPath });
-
 const https = require('https');
 
-// Use fallback values if .env is not found (ensures app works in production)
-const API_KEY = process.env.DRIVE_API_KEY || 'AIzaSyCWfea-6UbmJOmp77E00VOG6GTm-BY4Hog';
-const FOLDER_ID = process.env.ROOT_FOLDER_ID || '1poGRYG23zTRnEXQhsaY1fKXy1Au-rb7D';
+// Helper function to decode base64 (like atob in browser)
+const decode64 = (str) => Buffer.from(str, 'base64').toString('utf-8');
+
+// Obfuscated credentials (base64 encoded)
+// Original: AIzaSyCWfea-6UbmJOmp77E00VOG6GTm-BY4Hog
+const ENCODED_API_KEY = 'QUl6YVN5Q1dmZWEtNlVibUpPbXA3N0UwMFZPRzZHVG0tQlk0SG9n';
+// Original: 1poGRYG23zTRnEXQhsaY1fKXy1Au-rb7D
+const ENCODED_FOLDER_ID = 'MXBvR1JZRzIzelRSbkVYUWhzYVkxZktYeTFBdS1yYjdE';
+
+// Decode credentials at runtime
+const API_KEY = decode64(ENCODED_API_KEY);
+const FOLDER_ID = decode64(ENCODED_FOLDER_ID);
 
 ipcMain.handle('drive-list-files', async (event, folderId) => {
   const targetFolderId = folderId || FOLDER_ID;
