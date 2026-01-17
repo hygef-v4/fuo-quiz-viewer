@@ -450,12 +450,17 @@ ipcMain.handle('open-exam-folder', async () => {
 
 // --- Auto Updater Logic ---
 const { autoUpdater } = require('electron-updater');
+const log = require('electron-log');
 
-// Optional: Configure logging
-// autoUpdater.logger = require("electron-log");
-// autoUpdater.logger.transports.file.level = "info";
+// Configure logging
+autoUpdater.logger = log;
+autoUpdater.logger.transports.file.level = 'info';
+autoUpdater.autoDownload = true;
+autoUpdater.allowPrerelease = true;
+log.info('App starting...');
 
 function sendStatusToWindow(text) {
+  log.info(text);
   if (mainWindow) {
     mainWindow.webContents.send('update-message', text);
   }
@@ -485,6 +490,10 @@ autoUpdater.on('download-progress', (progressObj) => {
   log_message = log_message + ' - Downloaded ' + progressObj.percent + '%';
   log_message = log_message + ' (' + progressObj.transferred + "/" + progressObj.total + ')';
   sendStatusToWindow(log_message);
+  
+  if (mainWindow) {
+    mainWindow.webContents.send('update-download-progress', progressObj);
+  }
 });
 
 autoUpdater.on('update-downloaded', (info) => {
