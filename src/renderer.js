@@ -626,3 +626,414 @@ window.electronAPI.onUpdateDownloaded(() => {
 
 // Check for updates on load
 window.electronAPI.checkForUpdate();
+
+// --- Drive Explorer Logic ---
+const driveModal = document.getElementById('driveModal');
+const openDriveBtn = document.getElementById('openDriveBtn');
+const closeDriveBtn = document.getElementById('closeDriveBtn');
+const driveList = document.getElementById('driveList');
+const driveBreadcrumbs = document.getElementById('driveBreadcrumbs');
+const driveLoader = document.getElementById('driveLoader');
+const driveSearchInput = document.getElementById('driveSearchInput');
+
+let currentDriveFolder = null;
+let driveHistory = []; // Array of {id, name}
+let currentDriveFiles = []; // Store current files to access by ID
+let activeTab = 'browse'; // 'browse' or 'downloaded'
+
+const driveBrowseTab = document.getElementById('driveBrowseTab');
+const driveDownloadedTab = document.getElementById('driveDownloadedTab');
+
+if (openDriveBtn) {
+  openDriveBtn.addEventListener('click', () => {
+    driveModal.classList.add('active');
+    driveModal.classList.remove('hidden'); // Safety measure
+    if (!currentDriveFolder) {
+      loadDriveFolder('1zRpDvNzg_8XRAIkakg8W6FSo2WklY17O', 'Source FPT');
+    }
+  });
+}
+
+if (closeDriveBtn) {
+  closeDriveBtn.addEventListener('click', () => {
+    driveModal.classList.remove('active');
+  });
+}
+
+// Tab switching
+if (driveBrowseTab) {
+  driveBrowseTab.addEventListener('click', () => {
+    switchTab('browse');
+  });
+}
+
+if (driveDownloadedTab) {
+  driveDownloadedTab.addEventListener('click', () => {
+    switchTab('downloaded');
+  });
+}
+
+function switchTab(tab) {
+  activeTab = tab;
+  const openFolderBtn = document.getElementById('openExamFolderBtn');
+  
+  // Update tab styles
+  if (driveBrowseTab && driveDownloadedTab) {
+    if (tab === 'browse') {
+      driveBrowseTab.classList.add('active');
+      driveDownloadedTab.classList.remove('active');
+      
+      // Hide folder button
+      if (openFolderBtn) openFolderBtn.classList.add('hidden');
+      
+      // Show breadcrumbs and search for browse
+      if (driveBreadcrumbs) driveBreadcrumbs.style.display = 'flex';
+      if (driveSearchInput) driveSearchInput.parentElement.style.display = 'flex';
+      
+      // Reload browse content
+      if (!currentDriveFolder) {
+        loadDriveFolder('1zRpDvNzg_8XRAIkakg8W6FSo2WklY17O', 'Source FPT');
+      } else {
+        renderDriveFiles(currentDriveFiles);
+      }
+    } else {
+      driveDownloadedTab.classList.add('active');
+      driveBrowseTab.classList.remove('active');
+      
+      // Show folder button
+      if (openFolderBtn) openFolderBtn.classList.remove('hidden');
+      
+      // Hide breadcrumbs and search for downloaded
+      if (driveBreadcrumbs) driveBreadcrumbs.style.display = 'none';
+      if (driveSearchInput) driveSearchInput.parentElement.style.display = 'none';
+      
+      // Load downloaded exams
+      loadDownloadedExams();
+    }
+  }
+}
+
+async function loadDownloadedExams() {
+  try {
+    const exams = await window.electronAPI.getDownloadedExams();
+    
+    if (exams.length === 0) {
+      driveList.innerHTML = '<p class="no-comment" style="grid-column: 1/-1;">No downloaded exams yet.<br><br>Download exams from the "Browse Exam" tab.</p>';
+      return;
+    }
+    
+    // Render as files
+    renderDriveFiles(exams.map(exam => ({
+      id: null,
+      name: exam.name,
+      mimeType: 'application/zip',
+      size: exam.size,
+      path: exam.path,
+      isLocal: true
+    })));
+  } catch (error) {
+    console.error('Failed to load downloaded exams:', error);
+    driveList.innerHTML = '<p class="no-comment" style="grid-column: 1/-1;">Error loading downloaded exams.</p>';
+  }
+}
+
+// Search functionality - only on button click or Enter
+const driveSearchBtn = document.getElementById('driveSearchBtn');
+
+const performSearch = () => {
+  if (driveSearchInput) {
+    const query = driveSearchInput.value.toLowerCase().trim();
+    filterDriveFiles(query);
+  }
+};
+
+if (driveSearchBtn) {
+  driveSearchBtn.addEventListener('click', performSearch);
+}
+
+if (driveSearchInput) {
+  // Trigger search on Enter key
+  driveSearchInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      performSearch();
+    }
+  });
+}
+
+// Open exam folder button
+const openExamFolderBtn = document.getElementById('openExamFolderBtn');
+if (openExamFolderBtn) {
+  openExamFolderBtn.addEventListener('click', () => {
+    window.electronAPI.openExamFolder();
+  });
+}
+
+async function loadDriveFolder(folderId, folderName) {
+  try {
+    showDriveLoader(true);
+    
+    const existingIndex = driveHistory.findIndex(h => h.id === folderId);
+    if (existingIndex !== -1) {
+      driveHistory = driveHistory.slice(0, existingIndex + 1);
+    } else {
+      driveHistory.push({ id: folderId, name: folderName });
+    }
+    
+    updateBreadcrumbs();
+    
+    const files = await window.electronAPI.driveListFiles(folderId);
+    currentDriveFiles = files;
+    
+    // Clear search when changing folders
+    if (driveSearchInput) {
+      driveSearchInput.value = '';
+    }
+    
+    renderDriveFiles(files);
+    
+    currentDriveFolder = folderId;
+  } catch (error) {
+    alert('Failed to load Drive files: ' + error);
+  } finally {
+    showDriveLoader(false);
+  }
+}
+
+function filterDriveFiles(query) {
+  if (!query) {
+    // Show all files if search is empty
+    if (currentDriveFiles) {
+      renderDriveFiles(currentDriveFiles);
+    }
+    return;
+  }
+  
+  // Check if we're at root folder
+  const isRootFolder = currentDriveFolder === '1zRpDvNzg_8XRAIkakg8W6FSo2WklY17O';
+  
+  if (isRootFolder) {
+    // Global search from root - search all subfolders
+    performGlobalSearch(query);
+  } else {
+    // Local search - filter current folder only
+    if (!currentDriveFiles) return;
+    const filtered = currentDriveFiles.filter(file => {
+      return file.name && file.name.toLowerCase().includes(query);
+    });
+    renderDriveFiles(filtered);
+  }
+}
+
+async function performGlobalSearch(query) {
+  try {
+    // Show loading state
+    if (driveSearchInput) {
+      driveSearchInput.disabled = true;
+    }
+    if (driveSearchBtn) {
+      driveSearchBtn.disabled = true;
+      driveSearchBtn.classList.add('loading');
+    }
+    
+    const results = await window.electronAPI.driveSearchFiles('1zRpDvNzg_8XRAIkakg8W6FSo2WklY17O', query);
+    renderDriveFiles(results);
+  } catch (error) {
+    alert('Search failed: ' + error);
+    renderDriveFiles([]);
+  } finally {
+    // Remove loading state
+    if (driveSearchInput) {
+      driveSearchInput.disabled = false;
+    }
+    if (driveSearchBtn) {
+      driveSearchBtn.disabled = false;
+      driveSearchBtn.classList.remove('loading');
+    }
+  }
+}
+
+function updateBreadcrumbs() {
+  driveBreadcrumbs.innerHTML = '';
+  driveHistory.forEach((item, index) => {
+    const isLast = index === driveHistory.length - 1;
+    const span = document.createElement('span');
+    span.className = `breadcrumb-item ${isLast ? 'active' : ''}`;
+    span.textContent = item.name;
+    
+    if (!isLast) {
+      span.onclick = () => loadDriveFolder(item.id, item.name);
+      
+      const sep = document.createElement('span');
+      sep.className = 'breadcrumb-separator';
+      sep.textContent = '/';
+      
+      driveBreadcrumbs.appendChild(span);
+      driveBreadcrumbs.appendChild(sep);
+    } else {
+      driveBreadcrumbs.appendChild(span);
+    }
+  });
+}
+
+function renderDriveFiles(files) {
+  driveList.innerHTML = '';
+  // console.log('Rendering drive files:', files ? files.length : 0);
+  
+  if (!files || files.length === 0) {
+    driveList.innerHTML = '<p class="no-comment" style="grid-column: 1/-1;">No files found in this folder.</p>';
+    return;
+  }
+
+  // Define icons once for performance
+  const folderIcon = '<svg class="drive-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>';
+  const zipIcon = '<svg class="drive-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>';
+  const fileIcon = '<svg class="drive-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>';
+
+  files.forEach(file => {
+    try {
+      if (!file) return;
+
+      const name = file.name || 'Untitled';
+      const mimeType = file.mimeType || '';
+      
+      const isFolder = mimeType === 'application/vnd.google-apps.folder';
+      const isZip = mimeType.includes('zip') || name.toLowerCase().endsWith('.zip');
+      const isLocal = file.isLocal || false;
+      
+      const div = document.createElement('div');
+      div.className = `drive-item ${isFolder ? 'folder' : (isZip ? 'zip' : '')}`;
+      div.title = name;
+      
+      // Use string concatenation for innerHTML - it's faster and less error prone for mixed content
+      let icon = fileIcon;
+      if (isFolder) icon = folderIcon;
+      else if (isZip) icon = zipIcon;
+
+      // Safe HTML construction
+      let html = icon;
+      html += `<div class="drive-name"></div>`; // content filled via textContent below
+      if (file.size) {
+        html += `<div class="drive-size">${formatBytes(file.size)}</div>`;
+      }
+      
+      // Add delete button for local files
+      if (isLocal && file.path) {
+        html += `<button class="drive-action-btn drive-delete-btn" title="Delete">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+        </button>`;
+      }
+      
+      div.innerHTML = html;
+      
+      // Safely set text content
+      const nameEl = div.querySelector('.drive-name');
+      if (nameEl) nameEl.textContent = name;
+      
+      // Add click handler for the item
+      div.onclick = (e) => {
+        // Don't trigger if clicking action buttons
+        if (!e.target.closest('.drive-action-btn')) {
+          handleDriveItemClick(file);
+        }
+      };
+      
+      // Add click handler for delete button
+      if (isLocal && file.path) {
+        const deleteBtn = div.querySelector('.drive-delete-btn');
+        if (deleteBtn) {
+          deleteBtn.onclick = async (e) => {
+            e.stopPropagation();
+            if (confirm(`Are you sure you want to delete "${file.name}"?`)) {
+              const result = await window.electronAPI.deleteExam(file.path);
+              if (result.success) {
+                // Reload the downloaded exams list
+                loadDownloadedExams();
+              } else {
+                alert('Failed to delete file: ' + (result.error || 'Unknown error'));
+              }
+            }
+          };
+        }
+      }
+      
+      driveList.appendChild(div);
+      
+    } catch (e) {
+      console.error('Error rendering file item:', e);
+    }
+  });
+}
+
+async function handleDriveItemClick(file) {
+  // If it's a local file (from Downloaded tab)
+  if (file.isLocal && file.path) {
+    driveModal.classList.remove('active');
+    loadZip(file.path);
+    return;
+  }
+  
+  // Regular Drive file handling
+  if (file.mimeType === 'application/vnd.google-apps.folder') {
+    loadDriveFolder(file.id, file.name);
+  } else if (file.mimeType.includes('zip') || file.name.endsWith('.zip')) {
+    if (confirm(`Do you want to download and open "${file.name}"?`)) {
+      try {
+        showDownloadProgress(true, file.name);
+        const savedPath = await window.electronAPI.driveDownloadFile(file.id, file.name);
+        hideDownloadProgress();
+        driveModal.classList.remove('active');
+        loadZip(savedPath);
+      } catch (error) {
+        hideDownloadProgress();
+        alert('Download failed: ' + error);
+      }
+    }
+  }
+}
+
+function showDownloadProgress(show, fileName = '') {
+  const progressContainer = document.getElementById('driveDownloadProgress');
+  const progressText = document.getElementById('downloadProgressText');
+  
+  if (show && progressContainer) {
+    progressContainer.classList.remove('hidden');
+    if (progressText && fileName) {
+      progressText.textContent = `Downloading ${fileName}...`;
+    }
+  }
+}
+
+function hideDownloadProgress() {
+  const progressContainer = document.getElementById('driveDownloadProgress');
+  if (progressContainer) {
+    progressContainer.classList.add('hidden');
+  }
+}
+
+function updateDownloadProgress(data) {
+  const progressBar = document.getElementById('downloadProgressBar');
+  const progressDetails = document.getElementById('downloadProgressDetails');
+  
+  if (progressBar) {
+    progressBar.style.width = `${data.progress}%`;
+  }
+  
+  if (progressDetails) {
+    const downloadedMB = (data.downloadedSize / (1024 * 1024)).toFixed(2);
+    const totalMB = (data.totalSize / (1024 * 1024)).toFixed(2);
+    progressDetails.textContent = `${downloadedMB} MB / ${totalMB} MB (${data.progress}%)`;
+  }
+}
+
+// Listen for download progress
+window.electronAPI.onDriveDownloadProgress(updateDownloadProgress);
+
+function showDriveLoader(show) {
+  if (show) {
+    driveLoader.classList.remove('hidden');
+  } else {
+    driveLoader.classList.add('hidden');
+  }
+}

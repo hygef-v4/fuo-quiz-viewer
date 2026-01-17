@@ -204,6 +204,241 @@ ipcMain.handle('save-attachment', async (e, { zipPath, entryPath }) => {
   }
 });
 
+// --- Google Drive Integration ---
+const https = require('https');
+const DRIVE_API_KEY = 'AIzaSyCWfea-6UbmJOmp77E00VOG6GTm-BY4Hog';
+const ROOT_FOLDER_ID = '1zRpDvNzg_8XRAIkakg8W6FSo2WklY17O';
+
+ipcMain.handle('drive-list-files', async (event, folderId) => {
+  const targetFolderId = folderId || ROOT_FOLDER_ID;
+  return new Promise((resolve, reject) => {
+    // Add trashed=false to exclude deleted files
+    const query = `'${targetFolderId}' in parents and trashed=false`;
+    const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&key=${DRIVE_API_KEY}&fields=files(id,name,mimeType,size,modifiedTime)&orderBy=folder,name`;
+    
+    https.get(url, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          const json = JSON.parse(data);
+          if (json.error) {
+             reject(json.error.message);
+          } else {
+             resolve(json.files || []);
+          }
+        } catch (e) {
+          reject(e.message);
+        }
+      });
+    }).on('error', err => reject(err.message));
+  });
+});
+
+ipcMain.handle('drive-download-file', async (event, { fileId, fileName }) => {
+  return new Promise((resolve, reject) => {
+    // Create exam-data folder in app directory
+    const appPath = app.isPackaged ? path.dirname(app.getPath('exe')) : app.getAppPath();
+    const examDataPath = path.join(appPath, 'exam-data');
+    
+    // Create folder if it doesn't exist
+    if (!fs.existsSync(examDataPath)) {
+      fs.mkdirSync(examDataPath, { recursive: true });
+    }
+    
+    const destPath = path.join(examDataPath, fileName);
+    
+    // Check if file already exists
+    if (fs.existsSync(destPath)) {
+      // File already downloaded, return existing path
+      resolve(destPath);
+      return;
+    }
+    
+    const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${DRIVE_API_KEY}`;
+    const file = fs.createWriteStream(destPath);
+
+    https.get(url, (res) => {
+      // Follow redirects if necessary (Google Drive might redirect)
+      if (res.statusCode === 302 || res.statusCode === 303) {
+        https.get(res.headers.location, (redirectRes) => {
+           if (redirectRes.statusCode !== 200) {
+             reject(`Failed to download (redirect): ${redirectRes.statusCode}`);
+             return;
+           }
+           
+           const totalSize = parseInt(redirectRes.headers['content-length'], 10);
+           let downloadedSize = 0;
+           
+           redirectRes.on('data', (chunk) => {
+             downloadedSize += chunk.length;
+             const progress = totalSize ? Math.round((downloadedSize / totalSize) * 100) : 0;
+             event.sender.send('drive-download-progress', { progress, downloadedSize, totalSize });
+           });
+           
+           redirectRes.pipe(file);
+           file.on('finish', () => {
+             file.close(() => resolve(destPath));
+           });
+        }).on('error', (err) => {
+           fs.unlink(destPath, () => {});
+           reject(err.message);
+        });
+        return;
+      }
+
+      if (res.statusCode !== 200) {
+        reject(`Failed to download: ${res.statusCode}`);
+        return;
+      }
+      
+      const totalSize = parseInt(res.headers['content-length'], 10);
+      let downloadedSize = 0;
+      
+      res.on('data', (chunk) => {
+        downloadedSize += chunk.length;
+        const progress = totalSize ? Math.round((downloadedSize / totalSize) * 100) : 0;
+        event.sender.send('drive-download-progress', { progress, downloadedSize, totalSize });
+      });
+      
+      res.pipe(file);
+      file.on('finish', () => {
+        file.close(() => resolve(destPath));
+      });
+    }).on('error', (err) => {
+      fs.unlink(destPath, () => {});
+      reject(err.message);
+    });
+  });
+});
+
+ipcMain.handle('drive-search-files', async (event, { folderId, searchQuery }) => {
+  const escapedQuery = searchQuery.toLowerCase();
+  
+  // Helper function to search in a folder
+  const searchInFolder = (targetFolderId) => {
+    return new Promise((resolve, reject) => {
+      const query = `'${targetFolderId}' in parents and trashed=false`;
+      const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&key=${DRIVE_API_KEY}&fields=files(id,name,mimeType,size,modifiedTime)&pageSize=100`;
+      
+      https.get(url, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          try {
+            const json = JSON.parse(data);
+            if (json.error) {
+              reject(json.error.message);
+            } else {
+              resolve(json.files || []);
+            }
+          } catch (e) {
+            reject(e.message);
+          }
+        });
+      }).on('error', err => reject(err.message));
+    });
+  };
+  
+  // Recursive search function
+  const searchRecursive = async (targetFolderId) => {
+    const files = await searchInFolder(targetFolderId);
+    let results = [];
+    
+    // Filter matching files
+    const matching = files.filter(f => 
+      f.name && f.name.toLowerCase().includes(escapedQuery)
+    );
+    results.push(...matching);
+    
+    // Recursively search in subfolders
+    const folders = files.filter(f => f.mimeType === 'application/vnd.google-apps.folder');
+    for (const folder of folders) {
+      try {
+        const subResults = await searchRecursive(folder.id);
+        results.push(...subResults);
+      } catch (e) {
+        // Skip folders we can't access
+        console.error('Error searching folder:', folder.name, e);
+      }
+    }
+    
+    return results;
+  };
+  
+  try {
+    const results = await searchRecursive(folderId);
+    return results;
+  } catch (error) {
+    throw new Error(error);
+  }
+});
+
+// Get list of downloaded exams
+ipcMain.handle('get-downloaded-exams', async () => {
+  try {
+    const appPath = app.isPackaged ? path.dirname(app.getPath('exe')) : app.getAppPath();
+    const examDataPath = path.join(appPath, 'exam-data');
+    
+    if (!fs.existsSync(examDataPath)) {
+      return [];
+    }
+    
+    const files = fs.readdirSync(examDataPath);
+    const exams = files
+      .filter(f => f.endsWith('.zip'))
+      .map(f => {
+        const stats = fs.statSync(path.join(examDataPath, f));
+        return {
+          name: f,
+          path: path.join(examDataPath, f),
+          size: stats.size,
+          modifiedTime: stats.mtime
+        };
+      })
+      .sort((a, b) => b.modifiedTime - a.modifiedTime); // Sort by date, newest first
+    
+    return exams;
+  } catch (error) {
+    console.error('Error getting downloaded exams:', error);
+    return [];
+  }
+});
+
+// Show file in Explorer
+ipcMain.handle('show-in-explorer', async (event, filePath) => {
+  const { shell } = require('electron');
+  shell.showItemInFolder(filePath);
+});
+
+// Delete exam file
+ipcMain.handle('delete-exam', async (event, filePath) => {
+  try {
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+      return { success: true };
+    } else {
+      return { success: false, error: 'File not found' };
+    }
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Open exam-data folder
+ipcMain.handle('open-exam-folder', async () => {
+  const { shell } = require('electron');
+  const appPath = app.isPackaged ? path.dirname(app.getPath('exe')) : app.getAppPath();
+  const examDataPath = path.join(appPath, 'exam-data');
+  
+  // Create folder if it doesn't exist
+  if (!fs.existsSync(examDataPath)) {
+    fs.mkdirSync(examDataPath, { recursive: true });
+  }
+  
+  shell.openPath(examDataPath);
+});
+
 // --- Auto Updater Logic ---
 const { autoUpdater } = require('electron-updater');
 

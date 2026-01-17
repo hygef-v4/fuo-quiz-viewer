@@ -21,7 +21,13 @@
           <span>New version available!</span>
           <button id="restartBtn" class="btn-primary btn-sm">Restart to Update</button>
         </div>
-        <button id="openZipBtn" class="btn-primary">
+        <button id="openDriveBtn" class="btn-secondary">
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+          </svg>
+          Browse Exams
+        </button>
+        <button id="openZipBtn" class="btn-primary" style="margin-left: 10px;">
           <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
           </svg>
@@ -159,6 +165,63 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
         </svg>
       </button>
+    </div>
+  </div>
+
+  <!-- Drive Explorer Modal -->
+  <div id="driveModal" class="fullscreen-modal hidden">
+    <div class="drive-container">
+      <div class="drive-header">
+        <h2>Exam Explorer</h2>
+        <button id="closeDriveBtn" class="drive-close-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <div class="drive-tabs">
+        <div class="drive-tabs-left">
+          <button class="drive-tab active" id="driveBrowseTab">Download Exams</button>
+          <button class="drive-tab" id="driveDownloadedTab">Downloaded</button>
+        </div>
+        <button class="drive-open-folder-btn hidden" id="openExamFolderBtn" title="Open exam-data folder">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z" />
+          </svg>
+          Open Folder
+        </button>
+      </div>
+      <div class="drive-breadcrumbs" id="driveBreadcrumbs">
+        <!-- Breadcrumbs injected here -->
+      </div>
+      <div class="drive-search-container">
+        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        <input 
+          type="text" 
+          id="driveSearchInput" 
+          class="drive-search-input" 
+          placeholder="Search files..."
+        />
+        <button id="driveSearchBtn" class="drive-search-btn">Search</button>
+      </div>
+      <div class="drive-content" id="driveList">
+        <!-- Files list -->
+      </div>
+      <div class="drive-loader hidden" id="driveLoader">
+        <div class="spinner"></div>
+        <p>Loading...</p>
+      </div>
+      <div class="drive-download-progress hidden" id="driveDownloadProgress">
+        <div class="download-progress-content">
+          <p id="downloadProgressText">Downloading...</p>
+          <div class="progress-bar-container">
+            <div class="progress-bar" id="downloadProgressBar"></div>
+          </div>
+          <p class="download-progress-details" id="downloadProgressDetails">0 MB / 0 MB (0%)</p>
+        </div>
+      </div>
     </div>
   </div>
 
