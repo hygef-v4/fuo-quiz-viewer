@@ -39,6 +39,8 @@ const fsNextBtn = document.getElementById('fsNextBtn');
 const fsToggleComments = document.getElementById('fsToggleComments');
 const fsCommentSidebar = document.getElementById('fsCommentSidebar');
 const fsCommentContent = document.getElementById('fsCommentContent');
+const commentBadge = document.getElementById('commentBadge');
+const commentBadgeText = document.getElementById('commentBadgeText');
 
 // Event listeners
 openZipBtn.addEventListener('click', handleSelectZip);
@@ -85,8 +87,16 @@ document.addEventListener('mouseup', handleDragEnd);
 
 fsToggleComments.addEventListener('click', (e) => {
   e.stopPropagation();
-  fsCommentSidebar.classList.toggle('collapsed');
+  fsCommentSidebar.classList.toggle('visible');
 });
+
+// Comment badge toggle
+if (commentBadge) {
+  commentBadge.addEventListener('click', (e) => {
+    e.stopPropagation();
+    fsCommentSidebar.classList.toggle('visible');
+  });
+}
 
 // Keyboard navigation
 document.addEventListener('keydown', (e) => {
@@ -352,7 +362,89 @@ function showQuestion(questionIndex) {
   // Update fullscreen comment if open
   if (fullscreenModal.classList.contains('active')) {
     fsCommentContent.innerHTML = commentHtml;
+    // Update comment badge with stats
+    updateCommentBadge(question.comment || '');
   }
+}
+
+function updateCommentBadge(commentText) {
+  if (!commentBadgeText) return;
+  
+  console.log('[DEBUG] updateCommentBadge called with full text length:', commentText?.length);
+  
+  const answerCounts = { A: 0, B: 0, C: 0, D: 0 };
+  let totalComments = 0;
+  
+  if (commentText && commentText.trim()) {
+    const commentLines = commentText.split('\n');
+    
+    // Skip metadata section (everything before the ==== separator)
+    let startIndex = 0;
+    for (let i = 0; i < commentLines.length; i++) {
+      if (commentLines[i].includes('====')) {
+        startIndex = i + 1;
+        break;
+      }
+    }
+    
+    // Parse comment entries starting after the separator
+    for (let i = startIndex; i < commentLines.length; i++) {
+      const line = commentLines[i];
+      const trimmedLine = line.trim();
+      
+      // Check if this line starts a new comment entry (#1 | ..., #2 | ...)
+      // Format: #N | User | Date
+      if (trimmedLine.match(/^#\d+\s*\|/)) {
+        totalComments++;
+        
+        // Structure: #N | User | Date
+        //          ID: ...
+        //          Content:
+        //          (answer text)
+        
+        // Look for answer starting from i+1 (next 5 lines)
+        for (let j = i + 1; j < Math.min(i + 6, commentLines.length); j++) {
+          const checkLine = commentLines[j].trim();
+          
+          // Check if this line is pure A-D (answer)
+          const answerMatch = checkLine.match(/^[A-D]+$/i);
+          if (answerMatch) {
+            const answer = checkLine[0].toUpperCase();
+            answerCounts[answer]++;
+            break; // Stop after finding answer
+          }
+        }
+      }
+    }
+  }
+  
+  // Build badge text with answer counts and most common answer
+  let badgeText = '';
+  let maxCount = 0;
+  const mostCommonAnswers = [];
+  
+  ['A', 'B', 'C', 'D'].forEach(letter => {
+    if (answerCounts[letter] > 0) {
+      if (badgeText) badgeText += ', ';
+      badgeText += `${letter}: ${answerCounts[letter]}`;
+      
+      if (answerCounts[letter] > maxCount) {
+        maxCount = answerCounts[letter];
+        mostCommonAnswers.length = 0; // Clear array
+        mostCommonAnswers.push(letter);
+      } else if (answerCounts[letter] === maxCount) {
+        mostCommonAnswers.push(letter);
+      }
+    }
+  });
+  
+  // Add most common answer only if there's no tie
+  if (mostCommonAnswers.length === 1) {
+    badgeText += `, Answer: ${mostCommonAnswers[0]}`;
+  }
+  
+  // Set badge text (empty if no answers found)
+  commentBadgeText.textContent = badgeText;
 }
 
 function parseComment(commentText) {
@@ -483,6 +575,9 @@ function openFullscreen() {
     fsCommentContent.innerHTML = commentContent.innerHTML;
     fullscreenModal.classList.add('active');
     
+    // Ensure sidebar is hidden by default
+    fsCommentSidebar.classList.remove('visible');
+    
     // Reset zoom state on open
     resetZoom();
     
@@ -492,6 +587,12 @@ function openFullscreen() {
     fsPrevBtn.disabled = isSingleQuestion;
     fsNextBtn.disabled = isSingleQuestion;
     fsQuestionIndicator.textContent = `${currentQuestionIndex + 1} / ${exam.questions.length}`;
+    
+    // Update badge with current question's comment
+    const question = exam.questions[currentQuestionIndex];
+    if (question) {
+      updateCommentBadge(question.comment || '');
+    }
   }
 }
 

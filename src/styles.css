@@ -738,6 +738,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
 }
 
 .fs-image {
@@ -750,20 +751,73 @@ body {
 }
 
 
+/* Comment Badge Overlay */
+.comment-badge {
+  position: absolute;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  z-index: 10;
+  transition: all 0.2s ease;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  -webkit-user-select: none;
+  user-select: none;
+  opacity: 0;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.fullscreen-modal.active .comment-badge {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.comment-badge:hover {
+  background: rgba(15, 23, 42, 0.95);
+  border-color: var(--accent);
+  color: var(--accent);
+  transform: translateX(-50%) scale(1.05);
+}
+
+.comment-badge:active {
+  transform: translateX(-50%) scale(0.98);
+}
+
+body.light-mode .comment-badge {
+  background: rgba(248, 250, 252, 0.9);
+}
+
+body.light-mode .comment-badge:hover {
+  background: rgba(248, 250, 252, 0.95);
+}
+
 /* Sidebar */
 .fs-sidebar {
   width: 400px;
   background: var(--bg-secondary);
   border-left: 1px solid var(--border);
-  display: flex;
+  display: none;
   flex-direction: column;
   transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
 }
 
+.fs-sidebar.visible {
+  display: flex;
+  width: 400px;
+}
+
 .fs-sidebar.collapsed {
-  width: 0;
-  border: none;
+  display: none;
 }
 
 .fs-sidebar-header {
