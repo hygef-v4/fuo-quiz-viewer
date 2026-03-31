@@ -230,11 +230,36 @@ body {
   border-color: var(--primary);
 }
 
+.exam-item.completed {
+  opacity: 0.7;
+  border-color: var(--success);
+}
+
+.exam-item.completed .exam-item-name {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+.exam-item-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.exam-item-checkbox {
+  width: 1.125rem;
+  height: 1.125rem;
+  cursor: pointer;
+  accent-color: var(--success);
+  flex-shrink: 0;
+}
+
 .exam-item-name {
   font-weight: 600;
   font-size: 0.9375rem;
-  margin-bottom: 0.5rem;
   color: var(--text-primary);
+  flex: 1;
 }
 
 .exam-item-info {
@@ -248,6 +273,27 @@ body {
 .exam-item-info svg {
   width: 1rem;
   height: 1rem;
+}
+
+/* Exam Season Groups */
+.exam-season-group {
+  margin-bottom: 1.5rem;
+}
+
+.exam-season-header {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--primary);
+  padding: 0.625rem 1rem;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-left: 3px solid var(--primary);
+  background: rgba(59, 130, 246, 0.05);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
 /* Empty State */
