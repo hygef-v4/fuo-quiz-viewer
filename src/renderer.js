@@ -307,9 +307,11 @@ function showExam(examIndex) {
     });
   }
   
-  // Update active state in sidebar
-  document.querySelectorAll('.exam-item').forEach((item, index) => {
-    if (index === examIndex) {
+  // Update active state in sidebar using original data index.
+  // Sidebar items are grouped by season/year so DOM order may not match examIndex.
+  document.querySelectorAll('.exam-item').forEach((item) => {
+    const itemIndex = parseInt(item.dataset.index, 10);
+    if (itemIndex === examIndex) {
       item.classList.add('active');
     } else {
       item.classList.remove('active');
