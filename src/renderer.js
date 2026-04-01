@@ -4,6 +4,7 @@ let currentZipPath = null;
 let currentExamIndex = 0;
 let currentQuestionIndex = 0;
 let completedExams = new Set(); // Store completed exam indices
+let commentBadgeEnabled = JSON.parse(localStorage.getItem('commentBadgeEnabled') ?? 'true');
 
 // Zoom state
 let zoomLevel = 1;
@@ -41,6 +42,7 @@ const fsCommentSidebar = document.getElementById('fsCommentSidebar');
 const fsCommentContent = document.getElementById('fsCommentContent');
 const commentBadge = document.getElementById('commentBadge');
 const commentBadgeText = document.getElementById('commentBadgeText');
+const fsToggleBadge = document.getElementById('fsToggleBadge');
 
 // Event listeners
 openZipBtn.addEventListener('click', handleSelectZip);
@@ -95,6 +97,25 @@ if (commentBadge) {
   commentBadge.addEventListener('click', (e) => {
     e.stopPropagation();
     fsCommentSidebar.classList.toggle('visible');
+  });
+}
+
+// Badge enable/disable toggle
+if (fsToggleBadge) {
+  fsToggleBadge.addEventListener('click', (e) => {
+    e.stopPropagation();
+    commentBadgeEnabled = !commentBadgeEnabled;
+    localStorage.setItem('commentBadgeEnabled', JSON.stringify(commentBadgeEnabled));
+    
+    // Update button appearance
+    fsToggleBadge.classList.toggle('active', commentBadgeEnabled);
+    fsToggleBadge.style.opacity = commentBadgeEnabled ? '1' : '0.5';
+    
+    // Update badge display
+    const question = currentData[currentExamIndex].questions[currentQuestionIndex];
+    if (question) {
+      updateCommentBadge(question.comment || '');
+    }
   });
 }
 
@@ -370,6 +391,12 @@ function showQuestion(questionIndex) {
 function updateCommentBadge(commentText) {
   if (!commentBadgeText) return;
   
+  // Check if badge is enabled
+  if (!commentBadgeEnabled) {
+    commentBadgeText.textContent = '';
+    return;
+  }
+  
   console.log('[DEBUG] updateCommentBadge called with full text length:', commentText?.length);
   
   const answerCounts = { A: 0, B: 0, C: 0, D: 0 };
@@ -587,6 +614,11 @@ function openFullscreen() {
     fsPrevBtn.disabled = isSingleQuestion;
     fsNextBtn.disabled = isSingleQuestion;
     fsQuestionIndicator.textContent = `${currentQuestionIndex + 1} / ${exam.questions.length}`;
+    
+    // Update badge toggle button state
+    if (fsToggleBadge) {
+      fsToggleBadge.style.opacity = commentBadgeEnabled ? '1' : '0.5';
+    }
     
     // Update badge with current question's comment
     const question = exam.questions[currentQuestionIndex];

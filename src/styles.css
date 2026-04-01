@@ -755,8 +755,7 @@ body {
 .comment-badge {
   position: absolute;
   top: 1rem;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 1rem;
   background: rgba(15, 23, 42, 0.9);
   border: 1px solid var(--border);
   border-radius: 0.5rem;
@@ -785,11 +784,11 @@ body {
   background: rgba(15, 23, 42, 0.95);
   border-color: var(--accent);
   color: var(--accent);
-  transform: translateX(-50%) scale(1.05);
+  transform: scale(1.05);
 }
 
 .comment-badge:active {
-  transform: translateX(-50%) scale(0.98);
+  transform: scale(0.98);
 }
 
 body.light-mode .comment-badge {
