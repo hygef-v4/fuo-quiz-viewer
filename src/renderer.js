@@ -3,7 +3,8 @@ let currentData = null;
 let currentZipPath = null;
 let currentExamIndex = 0;
 let currentQuestionIndex = 0;
-let completedExams = new Set(); // Store completed exam indices
+// Store completed exam identifiers (exam.name) instead of array indexes
+let completedExams = new Set();
 let commentBadgeEnabled = JSON.parse(localStorage.getItem('commentBadgeEnabled') ?? 'true');
 
 // Zoom state
@@ -223,10 +224,11 @@ function renderExamList() {
     html += `<div class="exam-season-header">${group.seasonYear}</div>`;
     
     group.exams.forEach(({ exam, originalIndex }) => {
+      const examId = exam.name;
       html += `
-        <div class="exam-item ${originalIndex === currentExamIndex ? 'active' : ''} ${completedExams.has(originalIndex) ? 'completed' : ''}" data-index="${originalIndex}">
+        <div class="exam-item ${originalIndex === currentExamIndex ? 'active' : ''} ${completedExams.has(examId) ? 'completed' : ''}" data-index="${originalIndex}" data-exam-id="${encodeURIComponent(examId)}">
           <div class="exam-item-header">
-            <input type="checkbox" class="exam-item-checkbox" ${completedExams.has(originalIndex) ? 'checked' : ''}>
+            <input type="checkbox" class="exam-item-checkbox" ${completedExams.has(examId) ? 'checked' : ''}>
             <div class="exam-item-name">${exam.name}</div>
           </div>
           <div class="exam-item-info">
@@ -262,11 +264,11 @@ function renderExamList() {
         e.stopPropagation();
       });
       checkbox.addEventListener('change', (e) => {
-        const index = parseInt(item.dataset.index);
+        const examId = decodeURIComponent(item.dataset.examId);
         if (e.target.checked) {
-          completedExams.add(index);
+          completedExams.add(examId);
         } else {
-          completedExams.delete(index);
+          completedExams.delete(examId);
         }
         saveCompletedExams();
         item.classList.toggle('completed');
@@ -308,8 +310,9 @@ function showExam(examIndex) {
   }
   
   // Update active state in sidebar
-  document.querySelectorAll('.exam-item').forEach((item, index) => {
-    if (index === examIndex) {
+  document.querySelectorAll('.exam-item').forEach((item) => {
+    const indexFromDom = parseInt(item.dataset.index, 10);
+    if (indexFromDom === examIndex) {
       item.classList.add('active');
     } else {
       item.classList.remove('active');
@@ -959,9 +962,30 @@ function groupExamsByYearAndSeason(exams) {
     seasonYear: group.year > 0 ? `${group.season} ${group.year}` : 'Other'
   }));
 }
+
+function hashString(str) {
+  // Simple deterministic hash (djb2) for stable localStorage keys
+  let hash = 5381;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) + hash) + str.charCodeAt(i);
+    hash = hash >>> 0; // Force to uint32
+  }
+  return hash.toString(16);
+}
+
+function getCompletedExamsKey() {
+  if (!currentZipPath) return null;
+  const normalizedZipPath = currentZipPath.replace(/\\/g, '/');
+  return `completedExams::zip::${hashString(normalizedZipPath)}`;
+}
+
 function loadCompletedExams() {
   try {
-    const saved = localStorage.getItem('completedExams');
+    const key = getCompletedExamsKey();
+    completedExams = new Set();
+    if (!key) return;
+
+    const saved = localStorage.getItem(key);
     completedExams = new Set(saved ? JSON.parse(saved) : []);
   } catch (error) {
     console.error('Failed to load completed exams:', error);
@@ -971,14 +995,15 @@ function loadCompletedExams() {
 
 function saveCompletedExams() {
   try {
-    localStorage.setItem('completedExams', JSON.stringify(Array.from(completedExams)));
+    const key = getCompletedExamsKey();
+    if (!key) return;
+    localStorage.setItem(key, JSON.stringify(Array.from(completedExams)));
   } catch (error) {
     console.error('Failed to save completed exams:', error);
   }
 }
 
-// Load completed exams on app start
-loadCompletedExams();
+// completedExams sẽ được load khi đã có ZIP (trong loadZip)
 
 // Display App Version
 (async () => {
