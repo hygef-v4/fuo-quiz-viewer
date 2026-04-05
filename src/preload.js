@@ -7,6 +7,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Drive API
   driveListFiles: (folderId) => ipcRenderer.invoke('drive-list-files', folderId),
+  driveLoadExamsFromFolder: (folderId) => ipcRenderer.invoke('drive-load-exams-from-folder', folderId),
+  driveLoadZipFile: (fileId) => ipcRenderer.invoke('drive-load-zip-file', fileId),
+  driveReadTextFile: (fileId) => ipcRenderer.invoke('drive-read-text-file', fileId),
+  driveReadImageFile: (fileId, mimeType) => ipcRenderer.invoke('drive-read-image-file', { fileId, mimeType }),
   driveDownloadFile: (fileId, fileName) => ipcRenderer.invoke('drive-download-file', { fileId, fileName }),
   driveSearchFiles: (folderId, searchQuery) => ipcRenderer.invoke('drive-search-files', { folderId, searchQuery }),
   onDriveDownloadProgress: (callback) => ipcRenderer.on('drive-download-progress', (event, data) => callback(data)),

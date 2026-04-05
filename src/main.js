@@ -36,6 +36,101 @@ function createWindow() {
   }
 }
 
+function parseExamsFromZip(zip) {
+  const zipEntries = zip.getEntries();
+
+  // Parse the structure
+  const exams = {};
+
+  zipEntries.forEach(entry => {
+    if (entry.isDirectory) return;
+
+    const pathParts = entry.entryName.split('/');
+    if (pathParts.length < 2) return;
+
+    const examFolder = pathParts[0];
+    const fileName = pathParts[pathParts.length - 1];
+
+    // Initialize exam folder if not exists
+    if (!exams[examFolder]) {
+      exams[examFolder] = {
+        name: examFolder,
+        questions: [],
+        attachments: []
+      };
+    }
+
+    // Parse question files
+    if (fileName.endsWith('.webp') || fileName.endsWith('.png') || fileName.endsWith('.jpg') || fileName.endsWith('.jpeg')) {
+      // Skip upload files
+      if (fileName.includes('_upload')) return;
+
+      // Extract question number from filename
+      const match = fileName.match(/^(\d+)_/);
+      if (match) {
+        const questionNumber = parseInt(match[1], 10);
+
+        // Find or create question entry
+        let question = exams[examFolder].questions.find(q => q.number === questionNumber);
+        if (!question) {
+          question = {
+            number: questionNumber,
+            image: null,
+            comment: null
+          };
+          exams[examFolder].questions.push(question);
+        }
+
+        // Store image as base64
+        const imageData = entry.getData();
+        const base64Image = imageData.toString('base64');
+        const mimeType = fileName.endsWith('.webp') ? 'image/webp' :
+                        fileName.endsWith('.png') ? 'image/png' : 'image/jpeg';
+        question.image = `data:${mimeType};base64,${base64Image}`;
+      }
+    } else if (fileName.endsWith('_comments.txt')) {
+      // Extract question number from comment filename
+      const match = fileName.match(/^(\d+)_/);
+      if (match) {
+        const questionNumber = parseInt(match[1], 10);
+
+        // Find or create question entry
+        let question = exams[examFolder].questions.find(q => q.number === questionNumber);
+        if (!question) {
+          question = {
+            number: questionNumber,
+            image: null,
+            comment: null
+          };
+          exams[examFolder].questions.push(question);
+        }
+
+        // Store comment text
+        const commentData = entry.getData();
+        question.comment = commentData.toString('utf8');
+      }
+    } else {
+      // Handle attachments (anything else)
+      // Skip upload files here too just in case
+      if (fileName.includes('_upload')) return;
+
+      // Skip hidden files or system files if necessary, but generally include others
+      exams[examFolder].attachments.push({
+        name: fileName,
+        path: entry.entryName,
+        size: entry.header.size
+      });
+    }
+  });
+
+  // Sort questions by number in each exam
+  Object.values(exams).forEach(exam => {
+    exam.questions.sort((a, b) => a.number - b.number);
+  });
+
+  return Object.values(exams);
+}
+
 app.whenReady().then(createWindow);
 
 app.on('window-all-closed', () => {
@@ -70,100 +165,42 @@ ipcMain.handle('select-zip-file', async () => {
 ipcMain.handle('load-zip-file', async (event, zipPath) => {
   try {
     const zip = new AdmZip(zipPath);
-    const zipEntries = zip.getEntries();
-    
-    // Parse the structure
-    const exams = {};
-    
-    zipEntries.forEach(entry => {
-      if (entry.isDirectory) return;
-      
-      const pathParts = entry.entryName.split('/');
-      if (pathParts.length < 2) return;
-      
-      const examFolder = pathParts[0];
-      const fileName = pathParts[pathParts.length - 1];
-      
-      // Initialize exam folder if not exists
-      if (!exams[examFolder]) {
-        exams[examFolder] = {
-          name: examFolder,
-          questions: [],
-          attachments: []
-        };
-      }
-      
-      // Parse question files
-      if (fileName.endsWith('.webp') || fileName.endsWith('.png') || fileName.endsWith('.jpg') || fileName.endsWith('.jpeg')) {
-        // Skip upload files
-        if (fileName.includes('_upload')) return;
-
-        // Extract question number from filename
-        const match = fileName.match(/^(\d+)_/);
-        if (match) {
-          const questionNumber = parseInt(match[1]);
-          
-          // Find or create question entry
-          let question = exams[examFolder].questions.find(q => q.number === questionNumber);
-          if (!question) {
-            question = {
-              number: questionNumber,
-              image: null,
-              comment: null
-            };
-            exams[examFolder].questions.push(question);
-          }
-          
-          // Store image as base64
-          const imageData = entry.getData();
-          const base64Image = imageData.toString('base64');
-          const mimeType = fileName.endsWith('.webp') ? 'image/webp' : 
-                          fileName.endsWith('.png') ? 'image/png' : 'image/jpeg';
-          question.image = `data:${mimeType};base64,${base64Image}`;
-        }
-      } else if (fileName.endsWith('_comments.txt')) {
-        // Extract question number from comment filename
-        const match = fileName.match(/^(\d+)_/);
-        if (match) {
-          const questionNumber = parseInt(match[1]);
-          
-          // Find or create question entry
-          let question = exams[examFolder].questions.find(q => q.number === questionNumber);
-          if (!question) {
-            question = {
-              number: questionNumber,
-              image: null,
-              comment: null
-            };
-            exams[examFolder].questions.push(question);
-          }
-          
-          // Store comment text
-          const commentData = entry.getData();
-          question.comment = commentData.toString('utf8');
-        }
-      } else {
-        // Handle attachments (anything else)
-        // Skip upload files here too just in case
-        if (fileName.includes('_upload')) return;
-        
-        // Skip hidden files or system files if necessary, but generally include others
-        exams[examFolder].attachments.push({
-          name: fileName,
-          path: entry.entryName,
-          size: entry.header.size
-        });
-      }
-    });
-    
-    // Sort questions by number in each exam
-    Object.values(exams).forEach(exam => {
-      exam.questions.sort((a, b) => a.number - b.number);
-    });
+    const exams = parseExamsFromZip(zip);
     
     return {
       success: true,
-      exams: Object.values(exams)
+      exams
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+});
+
+ipcMain.handle('drive-load-zip-file', async (event, fileId) => {
+  if (!fileId) {
+    return {
+      success: false,
+      error: 'Missing fileId'
+    };
+  }
+
+  try {
+    const url = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media&key=${API_KEY}`;
+    const { statusCode, buffer } = await requestBuffer(url);
+
+    if (statusCode !== 200) {
+      throw new Error(`Failed to load ZIP from Drive: ${statusCode}`);
+    }
+
+    const zip = new AdmZip(buffer);
+    const exams = parseExamsFromZip(zip);
+
+    return {
+      success: true,
+      exams
     };
   } catch (error) {
     return {
@@ -216,30 +253,286 @@ const ENCODED_FOLDER_ID = 'MXBvR1JZRzIzelRSbkVYUWhzYVkxZktYeTFBdS1yYjdE';
 const API_KEY = decode64(ENCODED_API_KEY);
 const FOLDER_ID = decode64(ENCODED_FOLDER_ID);
 
-ipcMain.handle('drive-list-files', async (event, folderId) => {
-  const targetFolderId = folderId || FOLDER_ID;
+const DRIVE_FOLDER_MIME = 'application/vnd.google-apps.folder';
+
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function getImageMimeType(fileName) {
+  const lower = fileName.toLowerCase();
+  if (lower.endsWith('.webp')) return 'image/webp';
+  if (lower.endsWith('.png')) return 'image/png';
+  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
+  return 'application/octet-stream';
+}
+
+function isQuestionImage(fileName) {
+  const lower = fileName.toLowerCase();
+  return (lower.endsWith('.webp') || lower.endsWith('.png') || lower.endsWith('.jpg') || lower.endsWith('.jpeg')) && !lower.includes('_upload');
+}
+
+function requestBuffer(url, options = {}) {
   return new Promise((resolve, reject) => {
-    // Add trashed=false to exclude deleted files
-    const query = `'${targetFolderId}' in parents and trashed=false`;
-    const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&key=${API_KEY}&fields=files(id,name,mimeType,size,modifiedTime)&orderBy=folder,name`;
-    
-    https.get(url, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        try {
-          const json = JSON.parse(data);
-          if (json.error) {
-             reject(json.error.message);
-          } else {
-             resolve(json.files || []);
-          }
-        } catch (e) {
-          reject(e.message);
+    const req = https.get(url, options, (res) => {
+      // Follow redirect (Google Drive media endpoint can redirect)
+      if (res.statusCode === 302 || res.statusCode === 303 || res.statusCode === 307 || res.statusCode === 308) {
+        if (!res.headers.location) {
+          reject(new Error('Redirect without location header'));
+          return;
         }
+        requestBuffer(res.headers.location, options).then(resolve).catch(reject);
+        return;
+      }
+
+      const chunks = [];
+      res.on('data', (chunk) => chunks.push(chunk));
+      res.on('end', () => {
+        const buffer = Buffer.concat(chunks);
+        resolve({ statusCode: res.statusCode, buffer });
       });
-    }).on('error', err => reject(err.message));
+    });
+
+    req.on('error', reject);
   });
+}
+
+async function requestJson(url, retries = 2) {
+  let attempt = 0;
+  let lastError = null;
+
+  while (attempt <= retries) {
+    try {
+      const { statusCode, buffer } = await requestBuffer(url);
+      const text = buffer.toString('utf8');
+
+      if (statusCode >= 500 || statusCode === 429) {
+        throw new Error(`Drive API temporary error ${statusCode}: ${text}`);
+      }
+
+      if (statusCode !== 200) {
+        throw new Error(`Drive API error ${statusCode}: ${text}`);
+      }
+
+      const json = JSON.parse(text);
+      if (json.error) {
+        throw new Error(typeof json.error === 'string' ? json.error : (json.error.message || 'Unknown Drive error'));
+      }
+
+      return json;
+    } catch (error) {
+      lastError = error;
+      if (attempt === retries) {
+        break;
+      }
+      await delay(200 * (attempt + 1));
+      attempt += 1;
+    }
+  }
+
+  throw lastError;
+}
+
+async function listDriveFiles(folderId) {
+  const targetFolderId = folderId || FOLDER_ID;
+  const query = `'${targetFolderId}' in parents and trashed=false`;
+  const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&key=${API_KEY}&fields=files(id,name,mimeType,size,modifiedTime)&orderBy=folder,name&pageSize=1000`;
+  const json = await requestJson(url);
+  return json.files || [];
+}
+
+function parseDriveExamFiles(examName, files) {
+  const questionsByNumber = new Map();
+  const attachments = [];
+
+  files.forEach(file => {
+    if (!file || !file.name) return;
+    const fileName = file.name;
+    const lower = fileName.toLowerCase();
+
+    if (lower.includes('_upload')) {
+      return;
+    }
+
+    if (isQuestionImage(fileName)) {
+      const match = fileName.match(/^(\d+)_/);
+      if (!match) {
+        attachments.push({
+          id: file.id,
+          name: fileName,
+          size: Number(file.size || 0)
+        });
+        return;
+      }
+
+      const questionNumber = parseInt(match[1], 10);
+      let question = questionsByNumber.get(questionNumber);
+      if (!question) {
+        question = {
+          number: questionNumber,
+          image: null,
+          imageRef: null,
+          comment: null,
+          commentRef: null
+        };
+        questionsByNumber.set(questionNumber, question);
+      }
+
+      question.imageRef = {
+        fileId: file.id,
+        mimeType: file.mimeType || getImageMimeType(fileName),
+        name: fileName
+      };
+      return;
+    }
+
+    if (lower.endsWith('_comments.txt')) {
+      const match = fileName.match(/^(\d+)_/);
+      if (!match) {
+        attachments.push({
+          id: file.id,
+          name: fileName,
+          size: Number(file.size || 0)
+        });
+        return;
+      }
+
+      const questionNumber = parseInt(match[1], 10);
+      let question = questionsByNumber.get(questionNumber);
+      if (!question) {
+        question = {
+          number: questionNumber,
+          image: null,
+          imageRef: null,
+          comment: null,
+          commentRef: null
+        };
+        questionsByNumber.set(questionNumber, question);
+      }
+
+      question.commentRef = {
+        fileId: file.id,
+        name: fileName
+      };
+      return;
+    }
+
+    attachments.push({
+      id: file.id,
+      name: fileName,
+      size: Number(file.size || 0)
+    });
+  });
+
+  return {
+    name: examName,
+    sourceType: 'drive',
+    questions: Array.from(questionsByNumber.values()).sort((a, b) => a.number - b.number),
+    attachments
+  };
+}
+
+ipcMain.handle('drive-list-files', async (event, folderId) => {
+  return listDriveFiles(folderId);
+});
+
+ipcMain.handle('drive-load-exams-from-folder', async (event, folderId) => {
+  const targetFolderId = folderId || FOLDER_ID;
+  const children = await listDriveFiles(targetFolderId);
+  const examFolders = children.filter(file => file.mimeType === DRIVE_FOLDER_MIME);
+  const rootExamFiles = children.filter(file => file.mimeType !== DRIVE_FOLDER_MIME);
+  const rootZipFiles = rootExamFiles.filter(file => {
+    const name = (file.name || '').toLowerCase();
+    return name.endsWith('.zip') || (file.mimeType || '').includes('zip');
+  });
+  const exams = [];
+
+  // Folder-per-exam structure
+  for (const folder of examFolders) {
+    const examFiles = await listDriveFiles(folder.id);
+    const parsed = parseDriveExamFiles(folder.name, examFiles);
+    if (parsed.questions.length > 0 || parsed.attachments.length > 0) {
+      exams.push(parsed);
+    }
+  }
+
+  // Support a flat structure where questions are directly in the selected folder
+  if (rootExamFiles.length > 0) {
+    const parsedRoot = parseDriveExamFiles('Drive Dataset', rootExamFiles);
+    if (parsedRoot.questions.length > 0 || parsedRoot.attachments.length > 0) {
+      exams.push(parsedRoot);
+    }
+  }
+
+  const totalQuestions = exams.reduce((sum, exam) => sum + (exam.questions?.length || 0), 0);
+  if (totalQuestions === 0 && rootZipFiles.length > 0) {
+    return {
+      success: false,
+      error: 'This folder contains ZIP archives only. Please open a ZIP file directly from Drive list instead of opening the whole folder as dataset.'
+    };
+  }
+
+  return {
+    success: true,
+    exams
+  };
+});
+
+ipcMain.handle('drive-read-text-file', async (event, fileId) => {
+  if (!fileId) {
+    return {
+      success: false,
+      error: 'Missing fileId'
+    };
+  }
+
+  try {
+    const url = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media&key=${API_KEY}`;
+    const { statusCode, buffer } = await requestBuffer(url);
+
+    if (statusCode !== 200) {
+      throw new Error(`Failed to read text file: ${statusCode}`);
+    }
+
+    return {
+      success: true,
+      text: buffer.toString('utf8')
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+});
+
+ipcMain.handle('drive-read-image-file', async (event, { fileId, mimeType }) => {
+  if (!fileId) {
+    return {
+      success: false,
+      error: 'Missing fileId'
+    };
+  }
+
+  try {
+    const url = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media&key=${API_KEY}`;
+    const { statusCode, buffer } = await requestBuffer(url);
+
+    if (statusCode !== 200) {
+      throw new Error(`Failed to read image file: ${statusCode}`);
+    }
+
+    const normalizedMime = mimeType || 'application/octet-stream';
+    return {
+      success: true,
+      dataUrl: `data:${normalizedMime};base64,${buffer.toString('base64')}`
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message
+    };
+  }
 });
 
 // Get app version
@@ -329,25 +622,9 @@ ipcMain.handle('drive-search-files', async (event, { folderId, searchQuery }) =>
   // Helper function to search in a folder
   const searchInFolder = (targetFolderId) => {
     return new Promise((resolve, reject) => {
-      const query = `'${targetFolderId}' in parents and trashed=false`;
-      const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&key=${API_KEY}&fields=files(id,name,mimeType,size,modifiedTime)&pageSize=100`;
-      
-      https.get(url, (res) => {
-        let data = '';
-        res.on('data', chunk => data += chunk);
-        res.on('end', () => {
-          try {
-            const json = JSON.parse(data);
-            if (json.error) {
-              reject(json.error.message);
-            } else {
-              resolve(json.files || []);
-            }
-          } catch (e) {
-            reject(e.message);
-          }
-        });
-      }).on('error', err => reject(err.message));
+      listDriveFiles(targetFolderId)
+        .then(resolve)
+        .catch(err => reject(err.message || String(err)));
     });
   };
   

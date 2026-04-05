@@ -1,10 +1,15 @@
 // State management
 let currentData = null;
 let currentZipPath = null;
+let currentSource = 'zip';
 let currentExamIndex = 0;
 let currentQuestionIndex = 0;
 let completedExams = new Set(); // Store completed exam indices
 let commentBadgeEnabled = JSON.parse(localStorage.getItem('commentBadgeEnabled') ?? 'true');
+let latestQuestionRequestToken = 0;
+const driveImageCache = new Map();
+const driveCommentCache = new Map();
+const DRIVE_ROOT_ID = '1poGRYG23zTRnEXQhsaY1fKXy1Au-rb7D';
 
 // Zoom state
 let zoomLevel = 1;
@@ -26,6 +31,7 @@ const examAttachments = document.getElementById('examAttachments');
 const questionCount = document.getElementById('questionCount');
 const questionIndicator = document.getElementById('questionIndicator');
 const questionImage = document.getElementById('questionImage');
+const questionImageWrapper = questionImage?.closest('.question-image-wrapper');
 const commentContent = document.getElementById('commentContent');
 const prevQuestionBtn = document.getElementById('prevQuestionBtn');
 const nextQuestionBtn = document.getElementById('nextQuestionBtn');
@@ -193,6 +199,7 @@ async function loadZip(zipPath) {
     
     currentData = result.exams;
     currentZipPath = zipPath;
+    currentSource = 'zip';
     currentExamIndex = 0;
     currentQuestionIndex = 0;
     
@@ -207,6 +214,85 @@ async function loadZip(zipPath) {
     showExam(0);
   } catch (error) {
     alert(`Error: ${error.message}`);
+  }
+}
+
+async function loadZipFromDrive(fileId, fileName) {
+  try {
+    showDriveLoader(true);
+    const result = await window.electronAPI.driveLoadZipFile(fileId);
+
+    if (!result.success) {
+      alert(`Error loading ZIP from Drive: ${result.error}`);
+      return false;
+    }
+
+    if (!result.exams || result.exams.length === 0) {
+      alert('No valid exam data found in this ZIP file');
+      return false;
+    }
+
+    currentData = result.exams;
+    currentZipPath = null;
+    currentSource = 'drive-zip';
+    currentExamIndex = 0;
+    currentQuestionIndex = 0;
+
+    loadCompletedExams();
+
+    welcomeScreen.classList.add('hidden');
+    viewerContent.classList.remove('hidden');
+
+    renderExamList();
+    showExam(0);
+    return true;
+  } catch (error) {
+    alert(`Error opening ${fileName}: ${error.message}`);
+    return false;
+  } finally {
+    showDriveLoader(false);
+  }
+}
+
+async function loadDriveDataset(folderId, folderName) {
+  try {
+    showDriveLoader(true);
+    const result = await window.electronAPI.driveLoadExamsFromFolder(folderId);
+
+    if (!result.success) {
+      alert(`Cannot open Drive folder: ${result.error || 'Unknown error'}`);
+      return false;
+    }
+
+    if (!result.exams || result.exams.length === 0) {
+      alert('No valid exam data found in this Drive folder');
+      return false;
+    }
+
+    driveImageCache.clear();
+    driveCommentCache.clear();
+    currentData = result.exams;
+    currentZipPath = null;
+    currentSource = 'drive';
+    currentExamIndex = 0;
+    currentQuestionIndex = 0;
+
+    loadCompletedExams();
+    welcomeScreen.classList.add('hidden');
+    viewerContent.classList.remove('hidden');
+
+    renderExamList();
+    showExam(0);
+
+    currentDriveFolder = folderId;
+    driveHistory = [{ id: folderId, name: folderName || 'Drive Dataset' }];
+    updateBreadcrumbs();
+    return true;
+  } catch (error) {
+    alert(`Error opening Drive folder: ${error.message}`);
+    return false;
+  } finally {
+    showDriveLoader(false);
   }
 }
 
@@ -295,14 +381,23 @@ function showExam(examIndex) {
     exam.attachments.forEach(att => {
       const el = document.createElement('div');
       el.className = 'attachment-item';
-      el.title = `Download ${att.name} (${formatBytes(att.size)})`;
+      const sizeText = typeof att.size === 'number' ? formatBytes(att.size) : '';
+      el.title = sizeText ? `${att.name} (${sizeText})` : att.name;
       el.innerHTML = `
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
         </svg>
         <span>${att.name}</span>
       `;
-      el.addEventListener('click', () => saveExamAttachment(att.path));
+
+      if (currentSource === 'zip' && att.path) {
+        el.title = `Download ${att.name} (${sizeText || 'Unknown size'})`;
+        el.addEventListener('click', () => saveExamAttachment(att.path));
+      } else {
+        el.classList.add('disabled');
+        el.title = 'Attachments are read-only in Drive streaming mode';
+      }
+
       examAttachments.appendChild(el);
     });
   }
@@ -322,7 +417,94 @@ function showExam(examIndex) {
   showQuestion(0);
 }
 
-function showQuestion(questionIndex) {
+function setQuestionImageLoadingState(message = 'Loading image from Drive...') {
+  questionImage.src = '';
+  questionImage.alt = message;
+  questionImage.style.cursor = 'default';
+  questionImage.title = '';
+  questionImage.classList.add('loading');
+  questionImageWrapper?.classList.add('state-loading');
+  questionImageWrapper?.classList.remove('state-error');
+  if (questionImageWrapper) {
+    questionImageWrapper.dataset.stateText = message;
+  }
+  questionImage.dataset.loadingText = message;
+}
+
+function setQuestionImageErrorState(message = 'Failed to load image') {
+  questionImage.src = '';
+  questionImage.alt = message;
+  questionImage.style.cursor = 'default';
+  questionImage.title = '';
+  questionImage.classList.remove('loading');
+  questionImage.classList.add('error');
+  questionImageWrapper?.classList.remove('state-loading');
+  questionImageWrapper?.classList.add('state-error');
+  if (questionImageWrapper) {
+    questionImageWrapper.dataset.stateText = message;
+  }
+  questionImage.dataset.loadingText = message;
+}
+
+function clearQuestionImageState() {
+  questionImage.classList.remove('loading', 'error');
+  questionImageWrapper?.classList.remove('state-loading', 'state-error');
+  if (questionImageWrapper) {
+    delete questionImageWrapper.dataset.stateText;
+  }
+  delete questionImage.dataset.loadingText;
+}
+
+async function ensureDriveQuestionAssets(question) {
+  if (!question) return;
+
+  if (!question.image && question.imageRef?.fileId) {
+    const cacheKey = question.imageRef.fileId;
+    if (driveImageCache.has(cacheKey)) {
+      question.image = driveImageCache.get(cacheKey);
+    } else {
+      const imageResult = await window.electronAPI.driveReadImageFile(question.imageRef.fileId, question.imageRef.mimeType);
+      if (!imageResult.success) {
+        throw new Error(imageResult.error || 'Cannot load question image');
+      }
+      question.image = imageResult.dataUrl;
+      driveImageCache.set(cacheKey, question.image);
+    }
+  }
+
+  if (!question.comment && question.commentRef?.fileId) {
+    const cacheKey = question.commentRef.fileId;
+    if (driveCommentCache.has(cacheKey)) {
+      question.comment = driveCommentCache.get(cacheKey);
+    } else {
+      const commentResult = await window.electronAPI.driveReadTextFile(question.commentRef.fileId);
+      if (!commentResult.success) {
+        throw new Error(commentResult.error || 'Cannot load comment');
+      }
+      question.comment = commentResult.text;
+      driveCommentCache.set(cacheKey, question.comment);
+    }
+  }
+}
+
+function prefetchDriveQuestion(question) {
+  if (!question) return;
+  if (!question.imageRef?.fileId) return;
+  if (question.image || driveImageCache.has(question.imageRef.fileId)) return;
+
+  window.electronAPI
+    .driveReadImageFile(question.imageRef.fileId, question.imageRef.mimeType)
+    .then((result) => {
+      if (result.success && result.dataUrl) {
+        driveImageCache.set(question.imageRef.fileId, result.dataUrl);
+      }
+    })
+    .catch(() => {
+      // Intentionally ignore prefetch errors; foreground request will surface errors.
+    });
+}
+
+async function showQuestion(questionIndex) {
   const exam = currentData[currentExamIndex];
   
   if (!exam || questionIndex < 0 || questionIndex >= exam.questions.length) {
@@ -331,6 +513,7 @@ function showQuestion(questionIndex) {
   
   currentQuestionIndex = questionIndex;
   const question = exam.questions[questionIndex];
+  const requestToken = ++latestQuestionRequestToken;
   
   // Update question indicator
   questionIndicator.textContent = `${questionIndex + 1} / ${exam.questions.length}`;
@@ -346,9 +529,45 @@ function showQuestion(questionIndex) {
     fsNextBtn.disabled = isSingleQuestion;
     fsQuestionIndicator.textContent = `${questionIndex + 1} / ${exam.questions.length}`;
   }
+
+  const isDriveQuestion = currentSource === 'drive' || !!question.imageRef || !!question.commentRef;
+  if (isDriveQuestion && (question.imageRef || question.commentRef)) {
+    if (!question.image && question.imageRef) {
+      setQuestionImageLoadingState();
+      if (fullscreenModal.classList.contains('active')) {
+        fullscreenImage.src = '';
+      }
+    }
+
+    if (!question.comment && question.commentRef) {
+      commentContent.innerHTML = '<p class="no-comment">Loading comment from Drive...</p>';
+      if (fullscreenModal.classList.contains('active')) {
+        fsCommentContent.innerHTML = '<p class="no-comment">Loading comment from Drive...</p>';
+      }
+    }
+
+    try {
+      await ensureDriveQuestionAssets(question);
+    } catch (error) {
+      if (requestToken !== latestQuestionRequestToken) {
+        return;
+      }
+      if (!question.image) {
+        setQuestionImageErrorState('Failed to load image from Drive');
+      }
+      if (!question.comment) {
+        commentContent.innerHTML = `<p class="no-comment">Failed to load comment: ${escapeHtml(error.message)}</p>`;
+      }
+    }
+  }
+
+  if (requestToken !== latestQuestionRequestToken) {
+    return;
+  }
   
   // Update question image
   if (question.image) {
+    clearQuestionImageState();
     questionImage.src = question.image;
     questionImage.alt = `Question ${question.number}`;
     questionImage.style.cursor = 'pointer';
@@ -359,9 +578,7 @@ function showQuestion(questionIndex) {
       fullscreenImage.src = question.image;
     }
   } else {
-    questionImage.src = '';
-    questionImage.alt = 'No image available';
-    questionImage.style.cursor = 'default';
+    setQuestionImageErrorState('No image available');
     
     if (fullscreenModal.classList.contains('active')) {
       fullscreenImage.src = '';
@@ -387,6 +604,10 @@ function showQuestion(questionIndex) {
     fsCommentContent.innerHTML = commentHtml;
     // Update comment badge with stats
     updateCommentBadge(question.comment || '');
+  }
+
+  if (isDriveQuestion) {
+    prefetchDriveQuestion(exam.questions[questionIndex + 1]);
   }
 }
 
@@ -1017,7 +1238,7 @@ if (openDriveBtn) {
     driveModal.classList.add('active');
     driveModal.classList.remove('hidden'); // Safety measure
     if (!currentDriveFolder) {
-      loadDriveFolder('1poGRYG23zTRnEXQhsaY1fKXy1Au-rb7D', 'Source FPT');
+      loadDriveFolder(DRIVE_ROOT_ID, 'Source FPT');
     }
   });
 }
@@ -1060,7 +1281,7 @@ function switchTab(tab) {
       
       // Reload browse content
       if (!currentDriveFolder) {
-        loadDriveFolder('1poGRYG23zTRnEXQhsaY1fKXy1Au-rb7D', 'Source FPT');
+        loadDriveFolder(DRIVE_ROOT_ID, 'Source FPT');
       } else {
         renderDriveFiles(currentDriveFiles);
       }
@@ -1177,7 +1398,7 @@ function filterDriveFiles(query) {
   }
   
   // Check if we're at root folder
-  const isRootFolder = currentDriveFolder === '1poGRYG23zTRnEXQhsaY1fKXy1Au-rb7D';
+  const isRootFolder = currentDriveFolder === DRIVE_ROOT_ID;
   
   if (isRootFolder) {
     // Global search from root - search all subfolders
@@ -1203,7 +1424,7 @@ async function performGlobalSearch(query) {
       driveSearchBtn.classList.add('loading');
     }
     
-    const results = await window.electronAPI.driveSearchFiles('1poGRYG23zTRnEXQhsaY1fKXy1Au-rb7D', query);
+    const results = await window.electronAPI.driveSearchFiles(DRIVE_ROOT_ID, query);
     renderDriveFiles(results);
   } catch (error) {
     alert('Search failed: ' + error);
@@ -1346,17 +1567,9 @@ async function handleDriveItemClick(file) {
   if (file.mimeType === 'application/vnd.google-apps.folder') {
     loadDriveFolder(file.id, file.name);
   } else if (file.mimeType.includes('zip') || file.name.endsWith('.zip')) {
-    if (confirm(`Do you want to download and open "${file.name}"?`)) {
-      try {
-        showDownloadProgress(true, file.name);
-        const savedPath = await window.electronAPI.driveDownloadFile(file.id, file.name);
-        hideDownloadProgress();
-        driveModal.classList.remove('active');
-        loadZip(savedPath);
-      } catch (error) {
-        hideDownloadProgress();
-        alert('Download failed: ' + error);
-      }
+    const opened = await loadZipFromDrive(file.id, file.name);
+    if (opened) {
+      driveModal.classList.remove('active');
     }
   }
 }
