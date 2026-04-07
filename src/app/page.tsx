@@ -305,7 +305,6 @@ export default function HomePage() {
   const [mobileSlideToken, setMobileSlideToken] = useState(0);
   const fsImageWrapperRef = useRef<HTMLDivElement | null>(null);
   const fsDragStartRef = useRef({ x: 0, y: 0 });
-  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
 
   const currentExam = exams[examIndex];
   const currentQuestion = currentExam?.questions[questionIndex];
@@ -596,33 +595,6 @@ export default function HomePage() {
     },
     [currentExam?.questions.length],
   );
-
-  function handleQuestionTouchStart(event: React.TouchEvent<HTMLDivElement>) {
-    if (event.touches.length !== 1) return;
-    touchStartRef.current = {
-      x: event.touches[0].clientX,
-      y: event.touches[0].clientY,
-    };
-  }
-
-  function handleQuestionTouchEnd(event: React.TouchEvent<HTMLDivElement>) {
-    if (!touchStartRef.current || event.changedTouches.length !== 1) {
-      touchStartRef.current = null;
-      return;
-    }
-
-    const endX = event.changedTouches[0].clientX;
-    const endY = event.changedTouches[0].clientY;
-    const deltaX = endX - touchStartRef.current.x;
-    const deltaY = endY - touchStartRef.current.y;
-    touchStartRef.current = null;
-
-    if (Math.abs(deltaX) < 40 || Math.abs(deltaX) < Math.abs(deltaY) * 1.25) {
-      return;
-    }
-
-    navigateQuestionByDelta(deltaX > 0 ? -1 : 1);
-  }
 
   function handleFsImageWheel(event: React.WheelEvent<HTMLDivElement>) {
     if (!currentQuestion?.image) return;
@@ -1151,8 +1123,6 @@ export default function HomePage() {
                       openFullscreen();
                     }
                   }}
-                  onTouchStart={handleQuestionTouchStart}
-                  onTouchEnd={handleQuestionTouchEnd}
                 >
                   {!currentQuestion?.image ? (
                     <div style={{ color: "var(--text-muted)" }}>
@@ -1273,8 +1243,6 @@ export default function HomePage() {
                 onWheel={handleFsImageWheel}
                 onMouseDown={handleFsImageMouseDown}
                 onDoubleClick={handleFsImageDoubleClick}
-                onTouchStart={handleQuestionTouchStart}
-                onTouchEnd={handleQuestionTouchEnd}
               >
                 <img
                   src={currentQuestion.image}
