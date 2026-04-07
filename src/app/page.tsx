@@ -310,6 +310,12 @@ export default function HomePage() {
   const [translate, setTranslate] = useState({ x: 0, y: 0 });
   const imageWrapperRef = useRef<HTMLDivElement | null>(null);
   const dragStartRef = useRef({ x: 0, y: 0 });
+  const touchPinchRef = useRef({
+    active: false,
+    startDistance: 0,
+    startZoom: 1,
+    startTranslate: { x: 0, y: 0 },
+  });
 
   const [isFullscreenOpen, setIsFullscreenOpen] = useState(false);
   const [isFsCommentVisible, setIsFsCommentVisible] = useState(false);
@@ -327,6 +333,12 @@ export default function HomePage() {
   const fsDragStartRef = useRef({ x: 0, y: 0 });
   const touchPanStartRef = useRef({ x: 0, y: 0 });
   const fsTouchPanStartRef = useRef({ x: 0, y: 0 });
+  const fsTouchPinchRef = useRef({
+    active: false,
+    startDistance: 0,
+    startZoom: 1,
+    startTranslate: { x: 0, y: 0 },
+  });
 
   const currentExam = exams[examIndex];
   const currentQuestion = currentExam?.questions[questionIndex];
@@ -383,6 +395,40 @@ export default function HomePage() {
     [],
   );
 
+  const getTouchDistance = useCallback(
+    (
+      touches: {
+        length: number;
+        [index: number]: { clientX: number; clientY: number };
+      },
+    ) => {
+    if (touches.length < 2) return 0;
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.hypot(dx, dy);
+    },
+    [],
+  );
+
+  const getTouchCenter = useCallback(
+    (
+      touches: {
+        length: number;
+        [index: number]: { clientX: number; clientY: number };
+      },
+    ) => {
+      if (touches.length < 2) {
+        return { x: 0, y: 0 };
+      }
+
+      return {
+        x: (touches[0].clientX + touches[1].clientX) / 2,
+        y: (touches[0].clientY + touches[1].clientY) / 2,
+      };
+    },
+    [],
+  );
+
   useEffect(() => {
     if (isDriveModalOpen && files.length === 0 && breadcrumbs.length === 1) {
       loadFolder(undefined, "All Exams", [{ name: "All Exams" }]);
@@ -402,8 +448,19 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
+    // Always reset when switching to another exam.
     resetZoom();
-  }, [examIndex, questionIndex, currentQuestion?.image, resetZoom]);
+  }, [examIndex, resetZoom]);
+
+  useEffect(() => {
+    // On mobile, keep zoom/pan when moving between questions.
+    if (isMobileViewport) {
+      setIsDraggingImage(false);
+      return;
+    }
+
+    resetZoom();
+  }, [questionIndex, currentQuestion?.image, isMobileViewport, resetZoom]);
 
   useEffect(() => {
     if (!isDraggingImage) return;
@@ -645,7 +702,22 @@ export default function HomePage() {
   }
 
   function handleFsImageTouchStart(event: React.TouchEvent<HTMLDivElement>) {
-    if (fsZoomLevel <= 1 || event.touches.length !== 1) return;
+    if (event.touches.length === 2) {
+      event.preventDefault();
+      const distance = getTouchDistance(event.touches);
+      if (distance > 0) {
+        fsTouchPinchRef.current = {
+          active: true,
+          startDistance: distance,
+          startZoom: fsZoomLevel,
+          startTranslate: fsTranslate,
+        };
+      }
+      setFsIsDraggingImage(false);
+      return;
+    }
+
+    if (event.touches.length !== 1 || fsZoomLevel <= 1) return;
     event.preventDefault();
     fsTouchPanStartRef.current = {
       x: event.touches[0].clientX - fsTranslate.x,
@@ -655,6 +727,39 @@ export default function HomePage() {
   }
 
   function handleFsImageTouchMove(event: React.TouchEvent<HTMLDivElement>) {
+    if (event.touches.length === 2 && fsTouchPinchRef.current.active) {
+      event.preventDefault();
+
+      const container = fsImageWrapperRef.current;
+      if (!container || fsTouchPinchRef.current.startDistance <= 0) return;
+
+      const currentDistance = getTouchDistance(event.touches);
+      if (!currentDistance) return;
+
+      const scaleRatio = currentDistance / fsTouchPinchRef.current.startDistance;
+      const nextZoom = Math.min(
+        Math.max(1, fsTouchPinchRef.current.startZoom * scaleRatio),
+        5,
+      );
+
+      const pinchCenter = getTouchCenter(event.touches);
+      const rect = container.getBoundingClientRect();
+      const centerX = pinchCenter.x - rect.left - rect.width / 2;
+      const centerY = pinchCenter.y - rect.top - rect.height / 2;
+
+      const zoomRatio = nextZoom / fsTouchPinchRef.current.startZoom;
+      const targetX =
+        centerX * (1 - zoomRatio) +
+        fsTouchPinchRef.current.startTranslate.x * zoomRatio;
+      const targetY =
+        centerY * (1 - zoomRatio) +
+        fsTouchPinchRef.current.startTranslate.y * zoomRatio;
+
+      setFsZoomLevel(nextZoom);
+      setFsTranslate(clampFsTranslate(targetX, targetY, nextZoom));
+      return;
+    }
+
     if (!fsIsDraggingImage || fsZoomLevel <= 1 || event.touches.length !== 1) {
       return;
     }
@@ -665,8 +770,21 @@ export default function HomePage() {
     setFsTranslate(clampFsTranslate(nextX, nextY, fsZoomLevel));
   }
 
-  function handleFsImageTouchEnd() {
-    if (fsIsDraggingImage) {
+  function handleFsImageTouchEnd(event: React.TouchEvent<HTMLDivElement>) {
+    if (event.touches.length < 2) {
+      fsTouchPinchRef.current.active = false;
+    }
+
+    if (event.touches.length === 1 && fsZoomLevel > 1) {
+      fsTouchPanStartRef.current = {
+        x: event.touches[0].clientX - fsTranslate.x,
+        y: event.touches[0].clientY - fsTranslate.y,
+      };
+      setFsIsDraggingImage(true);
+      return;
+    }
+
+    if (event.touches.length === 0 && fsIsDraggingImage) {
       setFsIsDraggingImage(false);
     }
   }
@@ -809,7 +927,22 @@ export default function HomePage() {
   }
 
   function handleImageTouchStart(event: React.TouchEvent<HTMLDivElement>) {
-    if (zoomLevel <= 1 || event.touches.length !== 1) return;
+    if (event.touches.length === 2) {
+      event.preventDefault();
+      const distance = getTouchDistance(event.touches);
+      if (distance > 0) {
+        touchPinchRef.current = {
+          active: true,
+          startDistance: distance,
+          startZoom: zoomLevel,
+          startTranslate: translate,
+        };
+      }
+      setIsDraggingImage(false);
+      return;
+    }
+
+    if (event.touches.length !== 1 || zoomLevel <= 1) return;
     event.preventDefault();
     touchPanStartRef.current = {
       x: event.touches[0].clientX - translate.x,
@@ -819,6 +952,37 @@ export default function HomePage() {
   }
 
   function handleImageTouchMove(event: React.TouchEvent<HTMLDivElement>) {
+    if (event.touches.length === 2 && touchPinchRef.current.active) {
+      event.preventDefault();
+
+      const container = imageWrapperRef.current;
+      if (!container || touchPinchRef.current.startDistance <= 0) return;
+
+      const currentDistance = getTouchDistance(event.touches);
+      if (!currentDistance) return;
+
+      const scaleRatio = currentDistance / touchPinchRef.current.startDistance;
+      const nextZoom = Math.min(
+        Math.max(1, touchPinchRef.current.startZoom * scaleRatio),
+        5,
+      );
+
+      const pinchCenter = getTouchCenter(event.touches);
+      const rect = container.getBoundingClientRect();
+      const centerX = pinchCenter.x - rect.left - rect.width / 2;
+      const centerY = pinchCenter.y - rect.top - rect.height / 2;
+
+      const zoomRatio = nextZoom / touchPinchRef.current.startZoom;
+      const targetX =
+        centerX * (1 - zoomRatio) + touchPinchRef.current.startTranslate.x * zoomRatio;
+      const targetY =
+        centerY * (1 - zoomRatio) + touchPinchRef.current.startTranslate.y * zoomRatio;
+
+      setZoomLevel(nextZoom);
+      setTranslate(clampTranslate(targetX, targetY, nextZoom));
+      return;
+    }
+
     if (!isDraggingImage || zoomLevel <= 1 || event.touches.length !== 1) {
       return;
     }
@@ -829,8 +993,21 @@ export default function HomePage() {
     setTranslate(clampTranslate(nextX, nextY, zoomLevel));
   }
 
-  function handleImageTouchEnd() {
-    if (isDraggingImage) {
+  function handleImageTouchEnd(event: React.TouchEvent<HTMLDivElement>) {
+    if (event.touches.length < 2) {
+      touchPinchRef.current.active = false;
+    }
+
+    if (event.touches.length === 1 && zoomLevel > 1) {
+      touchPanStartRef.current = {
+        x: event.touches[0].clientX - translate.x,
+        y: event.touches[0].clientY - translate.y,
+      };
+      setIsDraggingImage(true);
+      return;
+    }
+
+    if (event.touches.length === 0 && isDraggingImage) {
       setIsDraggingImage(false);
     }
   }
