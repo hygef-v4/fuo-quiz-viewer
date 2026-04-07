@@ -1176,6 +1176,46 @@ export default function HomePage() {
                       />
                     </div>
                   )}
+                  {isMobileViewport && (
+                    <>
+                      <button
+                        type="button"
+                        className="question-side-nav prev"
+                        disabled={(currentExam?.questions.length || 0) <= 1}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          navigateQuestionByDelta(-1);
+                        }}
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M15 19l-7-7 7-7"
+                          />
+                        </svg>
+                      </button>
+                      <button
+                        type="button"
+                        className="question-side-nav next"
+                        disabled={(currentExam?.questions.length || 0) <= 1}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          navigateQuestionByDelta(1);
+                        }}
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M9 5l7 7-7 7"
+                          />
+                        </svg>
+                      </button>
+                    </>
+                  )}
                 </div>
                 <div
                   className={`comment-section ${isMobileViewport ? "mobile-visible" : isCommentPanelVisible ? "" : "hidden"}`}
