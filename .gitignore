@@ -16,3 +16,9 @@ web-next/next-env.d.ts
 # Next.js local environment
 web-next/.env.local
 web-next/.env*.local
+
+# Next.js (root app)
+.next/
+out/
+.vercel/
+.turbo/
