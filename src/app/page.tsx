@@ -295,6 +295,7 @@ export default function HomePage() {
   const [isFullscreenOpen, setIsFullscreenOpen] = useState(false);
   const [isFsCommentVisible, setIsFsCommentVisible] = useState(false);
   const [isCommentPanelVisible, setIsCommentPanelVisible] = useState(true);
+  const [isQuickAnswerVisible, setIsQuickAnswerVisible] = useState(false);
   const [quickAnswerEnabled, setQuickAnswerEnabled] = useState(true);
   const [fsZoomLevel, setFsZoomLevel] = useState(1);
   const [fsIsDraggingImage, setFsIsDraggingImage] = useState(false);
@@ -305,6 +306,8 @@ export default function HomePage() {
   const [mobileSlideToken, setMobileSlideToken] = useState(0);
   const fsImageWrapperRef = useRef<HTMLDivElement | null>(null);
   const fsDragStartRef = useRef({ x: 0, y: 0 });
+  const touchPanStartRef = useRef({ x: 0, y: 0 });
+  const fsTouchPanStartRef = useRef({ x: 0, y: 0 });
 
   const currentExam = exams[examIndex];
   const currentQuestion = currentExam?.questions[questionIndex];
@@ -622,6 +625,33 @@ export default function HomePage() {
     setFsIsDraggingImage(true);
   }
 
+  function handleFsImageTouchStart(event: React.TouchEvent<HTMLDivElement>) {
+    if (fsZoomLevel <= 1 || event.touches.length !== 1) return;
+    event.preventDefault();
+    fsTouchPanStartRef.current = {
+      x: event.touches[0].clientX - fsTranslate.x,
+      y: event.touches[0].clientY - fsTranslate.y,
+    };
+    setFsIsDraggingImage(true);
+  }
+
+  function handleFsImageTouchMove(event: React.TouchEvent<HTMLDivElement>) {
+    if (!fsIsDraggingImage || fsZoomLevel <= 1 || event.touches.length !== 1) {
+      return;
+    }
+
+    event.preventDefault();
+    const nextX = event.touches[0].clientX - fsTouchPanStartRef.current.x;
+    const nextY = event.touches[0].clientY - fsTouchPanStartRef.current.y;
+    setFsTranslate(clampFsTranslate(nextX, nextY, fsZoomLevel));
+  }
+
+  function handleFsImageTouchEnd() {
+    if (fsIsDraggingImage) {
+      setFsIsDraggingImage(false);
+    }
+  }
+
   function handleFsImageDoubleClick(event: React.MouseEvent<HTMLDivElement>) {
     if (!currentQuestion?.image) return;
 
@@ -757,6 +787,33 @@ export default function HomePage() {
       y: event.clientY - translate.y,
     };
     setIsDraggingImage(true);
+  }
+
+  function handleImageTouchStart(event: React.TouchEvent<HTMLDivElement>) {
+    if (zoomLevel <= 1 || event.touches.length !== 1) return;
+    event.preventDefault();
+    touchPanStartRef.current = {
+      x: event.touches[0].clientX - translate.x,
+      y: event.touches[0].clientY - translate.y,
+    };
+    setIsDraggingImage(true);
+  }
+
+  function handleImageTouchMove(event: React.TouchEvent<HTMLDivElement>) {
+    if (!isDraggingImage || zoomLevel <= 1 || event.touches.length !== 1) {
+      return;
+    }
+
+    event.preventDefault();
+    const nextX = event.touches[0].clientX - touchPanStartRef.current.x;
+    const nextY = event.touches[0].clientY - touchPanStartRef.current.y;
+    setTranslate(clampTranslate(nextX, nextY, zoomLevel));
+  }
+
+  function handleImageTouchEnd() {
+    if (isDraggingImage) {
+      setIsDraggingImage(false);
+    }
   }
 
   function handleImageDoubleClick(event: React.MouseEvent<HTMLDivElement>) {
@@ -1108,7 +1165,19 @@ export default function HomePage() {
                 >
                   Screenshot
                 </button>
+                <button
+                  type="button"
+                  className="comment-toggle-btn mobile-quick-answer-toggle"
+                  onClick={() => setIsQuickAnswerVisible((prev) => !prev)}
+                  disabled={!quickAnswerText}
+                >
+                  {isQuickAnswerVisible ? "Hide Quick Answer" : "Quick Answer"}
+                </button>
               </div>
+
+              {isQuickAnswerVisible && quickAnswerText && (
+                <div className="quick-answer-banner">{quickAnswerText}</div>
+              )}
 
               {/* Question and Comment Container */}
               <div className="question-container">
@@ -1117,6 +1186,10 @@ export default function HomePage() {
                   ref={imageWrapperRef}
                   onWheel={handleImageWheel}
                   onMouseDown={handleImageMouseDown}
+                  onTouchStart={handleImageTouchStart}
+                  onTouchMove={handleImageTouchMove}
+                  onTouchEnd={handleImageTouchEnd}
+                  onTouchCancel={handleImageTouchEnd}
                   onDoubleClick={handleImageDoubleClick}
                   onClick={() => {
                     if (!isMobileViewport) {
@@ -1242,6 +1315,10 @@ export default function HomePage() {
                 ref={fsImageWrapperRef}
                 onWheel={handleFsImageWheel}
                 onMouseDown={handleFsImageMouseDown}
+                onTouchStart={handleFsImageTouchStart}
+                onTouchMove={handleFsImageTouchMove}
+                onTouchEnd={handleFsImageTouchEnd}
+                onTouchCancel={handleFsImageTouchEnd}
                 onDoubleClick={handleFsImageDoubleClick}
               >
                 <img
