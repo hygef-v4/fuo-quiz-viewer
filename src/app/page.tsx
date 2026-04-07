@@ -292,6 +292,10 @@ export default function HomePage() {
   const [fsZoomLevel, setFsZoomLevel] = useState(1);
   const [fsIsDraggingImage, setFsIsDraggingImage] = useState(false);
   const [fsTranslate, setFsTranslate] = useState({ x: 0, y: 0 });
+  const [mobileSlideDirection, setMobileSlideDirection] = useState<
+    "left" | "right" | "none"
+  >("none");
+  const [mobileSlideToken, setMobileSlideToken] = useState(0);
   const fsImageWrapperRef = useRef<HTMLDivElement | null>(null);
   const fsDragStartRef = useRef({ x: 0, y: 0 });
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
@@ -558,6 +562,9 @@ export default function HomePage() {
     (delta: number) => {
       const questionCount = currentExam?.questions.length || 0;
       if (questionCount <= 1) return;
+
+      setMobileSlideDirection(delta < 0 ? "right" : "left");
+      setMobileSlideToken((prev) => prev + 1);
 
       setQuestionIndex((prev) => {
         if (delta < 0) {
@@ -1122,17 +1129,22 @@ export default function HomePage() {
                       No image loaded
                     </div>
                   ) : (
-                    <img
-                      src={currentQuestion.image}
-                      alt="Question"
-                      className="question-image"
-                      draggable={false}
-                      title="Click to view fullscreen"
-                      style={{
-                        transform: `translate(${translate.x}px, ${translate.y}px) scale(${zoomLevel})`,
-                        transformOrigin: "center",
-                      }}
-                    />
+                    <div
+                      key={`${currentExam?.name || "exam"}-${questionIndex}-${mobileSlideToken}`}
+                      className={`question-image-frame ${isMobileViewport ? `slide-${mobileSlideDirection}` : ""}`}
+                    >
+                      <img
+                        src={currentQuestion.image}
+                        alt="Question"
+                        className="question-image"
+                        draggable={false}
+                        title="Click to view fullscreen"
+                        style={{
+                          transform: `translate(${translate.x}px, ${translate.y}px) scale(${zoomLevel})`,
+                          transformOrigin: "center",
+                        }}
+                      />
+                    </div>
                   )}
                 </div>
                 <div
