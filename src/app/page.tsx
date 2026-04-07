@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { DriveFile, QuizExam } from "@/lib/types";
+import { parseExamsFromZipBuffer } from "@/lib/quiz-parser";
 
 type ListedFile = DriveFile & { isFolder?: boolean; isZip?: boolean };
 type StructuredCommentItem = {
@@ -254,6 +255,24 @@ function toSafeFileName(raw: string) {
     .replace(/[\\/:*?"<>|]+/g, "_")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+const publicDriveApiKey = process.env.NEXT_PUBLIC_GOOGLE_API_KEY || process.env.GOOGLE_API_KEY;
+
+async function openZipDirectFromDrive(fileId: string): Promise<QuizExam[] | null> {
+  if (!publicDriveApiKey) {
+    return null;
+  }
+
+  const url = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media&key=${publicDriveApiKey}`;
+  const res = await fetch(url, { cache: "no-store" });
+
+  if (!res.ok) {
+    throw new Error(`Drive direct download failed: ${res.status}`);
+  }
+
+  const buffer = await res.arrayBuffer();
+  return parseExamsFromZipBuffer(buffer);
 }
 
 export default function HomePage() {
@@ -875,22 +894,20 @@ export default function HomePage() {
     if (!file.id) return;
     setLoadingZip(true);
     setZipLoadProgress(10);
-    setZipLoadMessage("Downloading exam package...");
+    setZipLoadMessage("Downloading exam package directly...");
     setError(null);
 
     try {
-      const res = await fetch(
-        `/api/drive/open-zip?fileId=${encodeURIComponent(file.id)}`,
-      );
-      setZipLoadProgress(42);
-      setZipLoadMessage("Extracting exam data...");
-      const json = (await res.json()) as { exams?: QuizExam[]; error?: string };
+      let data: QuizExam[] | null = null;
+      data = await openZipDirectFromDrive(file.id);
 
-      if (!res.ok || json.error) {
-        throw new Error(json.error || "Failed to open ZIP file");
+      if (!data) {
+        throw new Error("Missing GOOGLE_API_KEY for direct Drive loading");
       }
 
-      const data = json.exams || [];
+      setZipLoadProgress(42);
+      setZipLoadMessage("Extracting exam data...");
+
       if (data.length === 0) {
         throw new Error("ZIP has no exam/question data");
       }

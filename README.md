@@ -33,11 +33,13 @@ Mo `http://localhost:3000`.
 ## 4. Kien truc nhanh
 
 - `src/app/api/drive/list/route.ts`: list files tu Google Drive.
-- `src/app/api/drive/open-zip/route.ts`: download ZIP vao memory server va parse.
+- `src/app/api/drive/open-zip/route.ts`: disabled (tranh Vercel data transfer cost).
 - `src/lib/drive.ts`: helper Drive API + parse ZIP.
 - `src/app/page.tsx`: UI viewer.
 
 ## 5. Luu y
 
 - API key nen dung cho data public read-only.
+- Chi can `GOOGLE_API_KEY`; app tu map sang bien public khi build de tai ZIP truc tiep tu Google Drive va giam outgoing/data transfer tren Vercel.
+- Fallback parse qua server da duoc tat de tranh bi tinh phi Fast Data Transfer.
 - Neu sau nay can private Drive, nen doi qua OAuth/service account.
