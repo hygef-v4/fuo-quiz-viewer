@@ -250,7 +250,10 @@ function parseCommentHtml(text: string) {
 }
 
 function toSafeFileName(raw: string) {
-  return raw.replace(/[\\/:*?"<>|]+/g, "_").replace(/\s+/g, " ").trim();
+  return raw
+    .replace(/[\\/:*?"<>|]+/g, "_")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 export default function HomePage() {
@@ -258,14 +261,18 @@ export default function HomePage() {
   const [files, setFiles] = useState<ListedFile[]>([]);
   const [breadcrumbs, setBreadcrumbs] = useState<
     { id?: string; name: string }[]
-  >([{ name: "Drive Dataset" }]);
+  >([{ name: "All Exams" }]);
 
   const [loadingFiles, setLoadingFiles] = useState(false);
   const [loadingZip, setLoadingZip] = useState(false);
   const [fileLoadProgress, setFileLoadProgress] = useState(0);
   const [zipLoadProgress, setZipLoadProgress] = useState(0);
-  const [fileLoadMessage, setFileLoadMessage] = useState("Loading items from Drive...");
-  const [zipLoadMessage, setZipLoadMessage] = useState("Loading exam online (in-memory)...");
+  const [fileLoadMessage, setFileLoadMessage] = useState(
+    "Loading exams...",
+  );
+  const [zipLoadMessage, setZipLoadMessage] = useState(
+    "Loading exam online (in-memory)...",
+  );
   const [error, setError] = useState<string | null>(null);
 
   const [exams, setExams] = useState<QuizExam[]>([]);
@@ -342,7 +349,10 @@ export default function HomePage() {
       const displayedHeight = naturalHeight * baseScale * targetZoom;
 
       const limitX = Math.max(0, (displayedWidth - container.clientWidth) / 2);
-      const limitY = Math.max(0, (displayedHeight - container.clientHeight) / 2);
+      const limitY = Math.max(
+        0,
+        (displayedHeight - container.clientHeight) / 2,
+      );
 
       return {
         x: Math.min(limitX, Math.max(-limitX, x)),
@@ -354,7 +364,7 @@ export default function HomePage() {
 
   useEffect(() => {
     if (isDriveModalOpen && files.length === 0 && breadcrumbs.length === 1) {
-      loadFolder(undefined, "Drive Dataset", [{ name: "Drive Dataset" }]);
+      loadFolder(undefined, "All Exams", [{ name: "All Exams" }]);
     }
   }, [isDriveModalOpen, files.length, breadcrumbs.length]);
 
@@ -412,7 +422,6 @@ export default function HomePage() {
     } catch {
       setQuickAnswerEnabled(true);
     }
-
   }, []);
 
   useEffect(() => {
@@ -450,7 +459,10 @@ export default function HomePage() {
   }, [completedExams]);
 
   useEffect(() => {
-    localStorage.setItem("quickAnswerBadgeEnabled", JSON.stringify(quickAnswerEnabled));
+    localStorage.setItem(
+      "quickAnswerBadgeEnabled",
+      JSON.stringify(quickAnswerEnabled),
+    );
   }, [quickAnswerEnabled]);
 
   const resetFsZoom = useCallback(() => {
@@ -487,7 +499,10 @@ export default function HomePage() {
       const displayedHeight = naturalHeight * baseScale * targetZoom;
 
       const limitX = Math.max(0, (displayedWidth - container.clientWidth) / 2);
-      const limitY = Math.max(0, (displayedHeight - container.clientHeight) / 2);
+      const limitY = Math.max(
+        0,
+        (displayedHeight - container.clientHeight) / 2,
+      );
 
       return {
         x: Math.min(limitX, Math.max(-limitX, x)),
@@ -500,7 +515,13 @@ export default function HomePage() {
   useEffect(() => {
     if (!isFullscreenOpen) return;
     resetFsZoom();
-  }, [examIndex, questionIndex, currentQuestion?.image, isFullscreenOpen, resetFsZoom]);
+  }, [
+    examIndex,
+    questionIndex,
+    currentQuestion?.image,
+    isFullscreenOpen,
+    resetFsZoom,
+  ]);
 
   useEffect(() => {
     if (!isFullscreenOpen || !fsIsDraggingImage) return;
@@ -677,8 +698,8 @@ export default function HomePage() {
     setFileLoadProgress(8);
     setFileLoadMessage(
       searchQuery?.trim()
-        ? "Searching in Drive folders..."
-        : "Loading items from Drive...",
+        ? "Searching exams..."
+        : "Loading exams...",
     );
     setError(null);
 
@@ -703,7 +724,7 @@ export default function HomePage() {
       };
 
       if (!res.ok || json.error) {
-        throw new Error(json.error || "Failed to load drive files");
+        throw new Error(json.error || "Failed to load exams");
       }
 
       setFolderId(json.folderId || targetFolderId || "");
@@ -798,7 +819,7 @@ export default function HomePage() {
 
   function clearDriveSearch() {
     const currentCrumb = breadcrumbs[breadcrumbs.length - 1] || {
-      name: "Drive Dataset",
+      name: "All Exams",
     };
 
     setDriveSearchInput("");
@@ -809,7 +830,7 @@ export default function HomePage() {
   function handleDriveSearch() {
     const query = driveSearchInput.trim();
     const currentCrumb = breadcrumbs[breadcrumbs.length - 1] || {
-      name: "Drive Dataset",
+      name: "All Exams",
     };
 
     setActiveSearchQuery(query);
@@ -825,7 +846,7 @@ export default function HomePage() {
     if (!file.id) return;
     setLoadingZip(true);
     setZipLoadProgress(10);
-    setZipLoadMessage("Downloading exam package from Drive...");
+    setZipLoadMessage("Downloading exam package...");
     setError(null);
 
     try {
@@ -904,7 +925,7 @@ export default function HomePage() {
                 d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
               />
             </svg>
-            FUO Quiz Viewer (Web)
+            FUO Quiz Viewer
           </h1>
           {exams.length > 0 && isMobileViewport && (
             <button
@@ -933,7 +954,7 @@ export default function HomePage() {
                 d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"
               />
             </svg>
-            Browse Exams
+            Load Exams
           </button>
         </div>
       </header>
@@ -941,7 +962,9 @@ export default function HomePage() {
       {/* Main Content */}
       <div className="main-content">
         {/* Sidebar */}
-        <aside className={`sidebar ${isMobileExamListOpen ? "mobile-open" : ""}`}>
+        <aside
+          className={`sidebar ${isMobileExamListOpen ? "mobile-open" : ""}`}
+        >
           <div className="sidebar-header">
             <h2>Exams</h2>
             <span className="count-badge">{exams.length}</span>
@@ -964,7 +987,7 @@ export default function HomePage() {
                 </svg>
                 <p>No exams loaded</p>
                 <p className="empty-hint">
-                  Open a Drive folder or ZIP file to get started
+                  Open an exam folder or ZIP file to get started
                 </p>
               </div>
             ) : (
@@ -992,14 +1015,21 @@ export default function HomePage() {
                           className="exam-item-checkbox"
                           checked={completedExams.has(originalIndex)}
                           onChange={(event) =>
-                            toggleCompletedExam(originalIndex, event.target.checked)
+                            toggleCompletedExam(
+                              originalIndex,
+                              event.target.checked,
+                            )
                           }
                           onClick={(event) => event.stopPropagation()}
                         />
                         <div className="exam-item-name">{exam.name}</div>
                       </div>
                       <div className="exam-item-info">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <svg
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                        >
                           <path
                             strokeLinecap="round"
                             strokeLinejoin="round"
@@ -1040,7 +1070,7 @@ export default function HomePage() {
                       d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
                     />
                   </svg>
-                  <h2>Click to Browse Drive Exams</h2>
+                  <h2>Click to Load Exams</h2>
                   <p>Or open an extracted exam folder from the menu</p>
                 </div>
               </div>
@@ -1244,7 +1274,9 @@ export default function HomePage() {
               </button>
             </div>
 
-            <div className={`fs-sidebar ${isFsCommentVisible ? "visible" : ""}`}>
+            <div
+              className={`fs-sidebar ${isFsCommentVisible ? "visible" : ""}`}
+            >
               <div className="fs-sidebar-header">
                 <h3>Comments</h3>
               </div>
@@ -1376,7 +1408,12 @@ export default function HomePage() {
             </div>
 
             <div className="drive-search-container">
-              <svg className="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <svg
+                className="search-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+              >
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -1419,7 +1456,9 @@ export default function HomePage() {
             {activeSearchQuery && (
               <div className="drive-active-search">
                 <span className="drive-active-search-label">Searching:</span>
-                <span className="drive-active-search-keyword">{activeSearchQuery}</span>
+                <span className="drive-active-search-keyword">
+                  {activeSearchQuery}
+                </span>
                 <button
                   type="button"
                   className="drive-active-search-clear"
@@ -1452,11 +1491,7 @@ export default function HomePage() {
                 className={`drive-loader ${loadingFiles || loadingZip ? "" : "hidden"}`}
               >
                 <div className="spinner"></div>
-                <p>
-                  {loadingZip
-                    ? zipLoadMessage
-                    : fileLoadMessage}
-                </p>
+                <p>{loadingZip ? zipLoadMessage : fileLoadMessage}</p>
                 <div className="drive-progress-wrap">
                   <div
                     className="drive-progress-bar"
@@ -1466,7 +1501,16 @@ export default function HomePage() {
                   />
                 </div>
                 <span className="drive-progress-value">
-                  {Math.max(0, Math.min(100, Math.round(loadingZip ? zipLoadProgress : fileLoadProgress)))}%
+                  {Math.max(
+                    0,
+                    Math.min(
+                      100,
+                      Math.round(
+                        loadingZip ? zipLoadProgress : fileLoadProgress,
+                      ),
+                    ),
+                  )}
+                  %
                 </span>
               </div>
 
@@ -1494,8 +1538,7 @@ export default function HomePage() {
                       setDriveSearchInput("");
                       setActiveSearchQuery("");
                       loadFolder(file.id, file.name);
-                    }
-                    else if (file.isZip) openZip(file);
+                    } else if (file.isZip) openZip(file);
                   }}
                 >
                   <svg
