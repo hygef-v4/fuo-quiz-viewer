@@ -279,6 +279,12 @@ document.addEventListener("keydown", (e) => {
       showExam(currentExamIndex + 1);
     }
   }
+  // Toggle comment sidebar in fullscreen with V
+  if (e.key.toLowerCase() === 'v' && fullscreenModal.classList.contains('active')) {
+    e.preventDefault();
+    fsCommentSidebar.classList.toggle('visible');
+    return;
+  }
 });
 
 async function handleSelectZip() {
