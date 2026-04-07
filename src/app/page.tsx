@@ -303,23 +303,12 @@ export default function HomePage() {
     "left" | "right" | "none"
   >("none");
   const [mobileSlideToken, setMobileSlideToken] = useState(0);
-  const [mobileDragOffset, setMobileDragOffset] = useState(0);
-  const [isMobileTouchDragging, setIsMobileTouchDragging] = useState(false);
   const fsImageWrapperRef = useRef<HTMLDivElement | null>(null);
   const fsDragStartRef = useRef({ x: 0, y: 0 });
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
 
   const currentExam = exams[examIndex];
   const currentQuestion = currentExam?.questions[questionIndex];
-  const questionCount = currentExam?.questions.length || 0;
-  const prevQuestion =
-    questionCount > 1
-      ? currentExam?.questions[(questionIndex - 1 + questionCount) % questionCount]
-      : null;
-  const nextQuestion =
-    questionCount > 1
-      ? currentExam?.questions[(questionIndex + 1) % questionCount]
-      : null;
   const groupedExams = useMemo(() => groupExamsByYearAndSeason(exams), [exams]);
   const quickAnswerText = useMemo(
     () => buildQuickAnswerBadge(currentQuestion?.comment || ""),
@@ -393,8 +382,6 @@ export default function HomePage() {
 
   useEffect(() => {
     resetZoom();
-    setMobileDragOffset(0);
-    setIsMobileTouchDragging(false);
   }, [examIndex, questionIndex, currentQuestion?.image, resetZoom]);
 
   useEffect(() => {
@@ -594,6 +581,7 @@ export default function HomePage() {
 
   const navigateQuestionByDelta = useCallback(
     (delta: number) => {
+      const questionCount = currentExam?.questions.length || 0;
       if (questionCount <= 1) return;
 
       setMobileSlideDirection(delta < 0 ? "right" : "left");
@@ -606,64 +594,34 @@ export default function HomePage() {
         return prev >= questionCount - 1 ? 0 : prev + 1;
       });
     },
-    [questionCount],
+    [currentExam?.questions.length],
   );
 
   function handleQuestionTouchStart(event: React.TouchEvent<HTMLDivElement>) {
-    if (!isMobileViewport) return;
     if (event.touches.length !== 1) return;
-    setIsMobileTouchDragging(false);
-    setMobileDragOffset(0);
     touchStartRef.current = {
       x: event.touches[0].clientX,
       y: event.touches[0].clientY,
     };
   }
 
-  function handleQuestionTouchMove(event: React.TouchEvent<HTMLDivElement>) {
-    if (!isMobileViewport || !touchStartRef.current || event.touches.length !== 1) {
-      return;
-    }
-
-    const deltaX = event.touches[0].clientX - touchStartRef.current.x;
-    const deltaY = event.touches[0].clientY - touchStartRef.current.y;
-
-    if (!isMobileTouchDragging) {
-      const horizontalIntent =
-        Math.abs(deltaX) > 10 && Math.abs(deltaX) > Math.abs(deltaY) * 1.05;
-      if (!horizontalIntent) {
-        return;
-      }
-      setIsMobileTouchDragging(true);
-    }
-
-    event.preventDefault();
-    const width = imageWrapperRef.current?.clientWidth || window.innerWidth;
-    const clampOffset = Math.max(-width * 0.8, Math.min(width * 0.8, deltaX));
-    setMobileDragOffset(clampOffset);
-  }
-
   function handleQuestionTouchEnd(event: React.TouchEvent<HTMLDivElement>) {
-    if (!touchStartRef.current) {
+    if (!touchStartRef.current || event.changedTouches.length !== 1) {
       touchStartRef.current = null;
-      setIsMobileTouchDragging(false);
-      setMobileDragOffset(0);
       return;
     }
 
-    const width = imageWrapperRef.current?.clientWidth || window.innerWidth;
-    const threshold = Math.max(44, width * 0.16);
-    const finalOffset = mobileDragOffset;
-
+    const endX = event.changedTouches[0].clientX;
+    const endY = event.changedTouches[0].clientY;
+    const deltaX = endX - touchStartRef.current.x;
+    const deltaY = endY - touchStartRef.current.y;
     touchStartRef.current = null;
-    setIsMobileTouchDragging(false);
-    setMobileDragOffset(0);
 
-    if (Math.abs(finalOffset) < threshold) {
+    if (Math.abs(deltaX) < 40 || Math.abs(deltaX) < Math.abs(deltaY) * 1.25) {
       return;
     }
 
-    navigateQuestionByDelta(finalOffset > 0 ? -1 : 1);
+    navigateQuestionByDelta(deltaX > 0 ? -1 : 1);
   }
 
   function handleFsImageWheel(event: React.WheelEvent<HTMLDivElement>) {
@@ -1194,56 +1152,11 @@ export default function HomePage() {
                     }
                   }}
                   onTouchStart={handleQuestionTouchStart}
-                  onTouchMove={handleQuestionTouchMove}
                   onTouchEnd={handleQuestionTouchEnd}
                 >
                   {!currentQuestion?.image ? (
                     <div style={{ color: "var(--text-muted)" }}>
                       No image loaded
-                    </div>
-                  ) : isMobileViewport && questionCount > 1 ? (
-                    <div
-                      className={`mobile-question-track ${isMobileTouchDragging ? "dragging" : ""}`}
-                      style={{
-                        transform: `translateX(calc(-100% + ${mobileDragOffset}px))`,
-                      }}
-                    >
-                      <div className="mobile-question-pane">
-                        {prevQuestion?.image ? (
-                          <img
-                            src={prevQuestion.image}
-                            alt={`Question ${prevQuestion.number}`}
-                            className="question-image"
-                            draggable={false}
-                          />
-                        ) : (
-                          <div className="mobile-question-placeholder">No preview</div>
-                        )}
-                      </div>
-                      <div className="mobile-question-pane">
-                        <img
-                          src={currentQuestion.image}
-                          alt="Question"
-                          className="question-image"
-                          draggable={false}
-                          style={{
-                            transform: `translate(${translate.x}px, ${translate.y}px) scale(${zoomLevel})`,
-                            transformOrigin: "center",
-                          }}
-                        />
-                      </div>
-                      <div className="mobile-question-pane">
-                        {nextQuestion?.image ? (
-                          <img
-                            src={nextQuestion.image}
-                            alt={`Question ${nextQuestion.number}`}
-                            className="question-image"
-                            draggable={false}
-                          />
-                        ) : (
-                          <div className="mobile-question-placeholder">No preview</div>
-                        )}
-                      </div>
                     </div>
                   ) : (
                     <div
@@ -1262,46 +1175,6 @@ export default function HomePage() {
                         }}
                       />
                     </div>
-                  )}
-                  {isMobileViewport && (
-                    <>
-                      <button
-                        type="button"
-                        className="question-side-nav prev"
-                        disabled={questionCount <= 1}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          navigateQuestionByDelta(-1);
-                        }}
-                      >
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            d="M15 19l-7-7 7-7"
-                          />
-                        </svg>
-                      </button>
-                      <button
-                        type="button"
-                        className="question-side-nav next"
-                        disabled={questionCount <= 1}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          navigateQuestionByDelta(1);
-                        }}
-                      >
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            d="M9 5l7 7-7 7"
-                          />
-                        </svg>
-                      </button>
-                    </>
                   )}
                 </div>
                 <div
