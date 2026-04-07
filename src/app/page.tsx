@@ -275,6 +275,7 @@ export default function HomePage() {
 
   const [isDriveModalOpen, setIsDriveModalOpen] = useState(false);
   const [isMobileExamListOpen, setIsMobileExamListOpen] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
   const [driveSearchInput, setDriveSearchInput] = useState("");
   const [activeSearchQuery, setActiveSearchQuery] = useState("");
 
@@ -287,13 +288,13 @@ export default function HomePage() {
   const [isFullscreenOpen, setIsFullscreenOpen] = useState(false);
   const [isFsCommentVisible, setIsFsCommentVisible] = useState(false);
   const [isCommentPanelVisible, setIsCommentPanelVisible] = useState(true);
-  const [isMobileCommentSheetOpen, setIsMobileCommentSheetOpen] = useState(false);
   const [quickAnswerEnabled, setQuickAnswerEnabled] = useState(true);
   const [fsZoomLevel, setFsZoomLevel] = useState(1);
   const [fsIsDraggingImage, setFsIsDraggingImage] = useState(false);
   const [fsTranslate, setFsTranslate] = useState({ x: 0, y: 0 });
   const fsImageWrapperRef = useRef<HTMLDivElement | null>(null);
   const fsDragStartRef = useRef({ x: 0, y: 0 });
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
 
   const currentExam = exams[examIndex];
   const currentQuestion = currentExam?.questions[questionIndex];
@@ -354,8 +355,19 @@ export default function HomePage() {
   }, [isDriveModalOpen, files.length, breadcrumbs.length]);
 
   useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 900px)");
+    const updateViewport = () => setIsMobileViewport(mediaQuery.matches);
+
+    updateViewport();
+    mediaQuery.addEventListener("change", updateViewport);
+
+    return () => {
+      mediaQuery.removeEventListener("change", updateViewport);
+    };
+  }, []);
+
+  useEffect(() => {
     resetZoom();
-    setIsMobileCommentSheetOpen(false);
   }, [examIndex, questionIndex, currentQuestion?.image, resetZoom]);
 
   useEffect(() => {
@@ -539,9 +551,50 @@ export default function HomePage() {
     if (!currentQuestion?.image) return;
     setIsFullscreenOpen(true);
     setIsFsCommentVisible(false);
-    setIsMobileCommentSheetOpen(false);
     resetFsZoom();
   }, [currentQuestion?.image, resetFsZoom]);
+
+  const navigateQuestionByDelta = useCallback(
+    (delta: number) => {
+      const questionCount = currentExam?.questions.length || 0;
+      if (questionCount <= 1) return;
+
+      setQuestionIndex((prev) => {
+        if (delta < 0) {
+          return prev <= 0 ? questionCount - 1 : prev - 1;
+        }
+        return prev >= questionCount - 1 ? 0 : prev + 1;
+      });
+    },
+    [currentExam?.questions.length],
+  );
+
+  function handleQuestionTouchStart(event: React.TouchEvent<HTMLDivElement>) {
+    if (event.touches.length !== 1) return;
+    touchStartRef.current = {
+      x: event.touches[0].clientX,
+      y: event.touches[0].clientY,
+    };
+  }
+
+  function handleQuestionTouchEnd(event: React.TouchEvent<HTMLDivElement>) {
+    if (!touchStartRef.current || event.changedTouches.length !== 1) {
+      touchStartRef.current = null;
+      return;
+    }
+
+    const endX = event.changedTouches[0].clientX;
+    const endY = event.changedTouches[0].clientY;
+    const deltaX = endX - touchStartRef.current.x;
+    const deltaY = endY - touchStartRef.current.y;
+    touchStartRef.current = null;
+
+    if (Math.abs(deltaX) < 40 || Math.abs(deltaX) < Math.abs(deltaY) * 1.25) {
+      return;
+    }
+
+    navigateQuestionByDelta(deltaX > 0 ? -1 : 1);
+  }
 
   function handleFsImageWheel(event: React.WheelEvent<HTMLDivElement>) {
     if (!currentQuestion?.image) return;
@@ -736,6 +789,16 @@ export default function HomePage() {
     setIsDriveModalOpen(true);
   }
 
+  function clearDriveSearch() {
+    const currentCrumb = breadcrumbs[breadcrumbs.length - 1] || {
+      name: "Drive Dataset",
+    };
+
+    setDriveSearchInput("");
+    setActiveSearchQuery("");
+    loadFolder(currentCrumb.id, currentCrumb.name, [...breadcrumbs]);
+  }
+
   function handleDriveSearch() {
     const query = driveSearchInput.trim();
     const currentCrumb = breadcrumbs[breadcrumbs.length - 1] || {
@@ -836,7 +899,7 @@ export default function HomePage() {
             </svg>
             FUO Quiz Viewer (Web)
           </h1>
-          {exams.length > 0 && (
+          {exams.length > 0 && isMobileViewport && (
             <button
               type="button"
               className="btn-secondary mobile-exams-toggle"
@@ -989,16 +1052,8 @@ export default function HomePage() {
                 <div className="question-nav">
                   <button
                     className="btn-nav"
-                    disabled={
-                      questionIndex <= 0 && currentExam?.questions.length <= 1
-                    }
-                    onClick={() =>
-                      setQuestionIndex((prev) =>
-                        prev <= 0
-                          ? (currentExam?.questions.length || 1) - 1
-                          : prev - 1,
-                      )
-                    }
+                    disabled={(currentExam?.questions.length || 0) <= 1}
+                    onClick={() => navigateQuestionByDelta(-1)}
                   >
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
                       <path
@@ -1015,18 +1070,8 @@ export default function HomePage() {
                   </span>
                   <button
                     className="btn-nav"
-                    disabled={
-                      questionIndex >=
-                        (currentExam?.questions.length || 1) - 1 &&
-                      currentExam?.questions.length <= 1
-                    }
-                    onClick={() =>
-                      setQuestionIndex((prev) =>
-                        prev >= (currentExam?.questions.length || 1) - 1
-                          ? 0
-                          : prev + 1,
-                      )
-                    }
+                    disabled={(currentExam?.questions.length || 0) <= 1}
+                    onClick={() => navigateQuestionByDelta(1)}
                   >
                     Next
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -1064,7 +1109,13 @@ export default function HomePage() {
                   onWheel={handleImageWheel}
                   onMouseDown={handleImageMouseDown}
                   onDoubleClick={handleImageDoubleClick}
-                  onClick={openFullscreen}
+                  onClick={() => {
+                    if (!isMobileViewport) {
+                      openFullscreen();
+                    }
+                  }}
+                  onTouchStart={handleQuestionTouchStart}
+                  onTouchEnd={handleQuestionTouchEnd}
                 >
                   {!currentQuestion?.image ? (
                     <div style={{ color: "var(--text-muted)" }}>
@@ -1084,14 +1135,9 @@ export default function HomePage() {
                     />
                   )}
                 </div>
-                <button
-                  type="button"
-                  className="mobile-comment-fab"
-                  onClick={() => setIsMobileCommentSheetOpen(true)}
+                <div
+                  className={`comment-section ${isMobileViewport ? "mobile-visible" : isCommentPanelVisible ? "" : "hidden"}`}
                 >
-                  Comment
-                </button>
-                <div className={`comment-section ${isCommentPanelVisible ? "" : "hidden"}`}>
                   <div className="comment-header">
                     <svg
                       className="comment-icon"
@@ -1113,28 +1159,6 @@ export default function HomePage() {
                   </div>
                 </div>
               </div>
-              <div
-                className={`mobile-comment-backdrop ${isMobileCommentSheetOpen ? "open" : ""}`}
-                onClick={() => setIsMobileCommentSheetOpen(false)}
-              />
-              <section
-                className={`mobile-comment-sheet ${isMobileCommentSheetOpen ? "open" : ""}`}
-              >
-                <div className="mobile-comment-handle" />
-                <div className="mobile-comment-sheet-header">
-                  <h3>Comment</h3>
-                  <button
-                    type="button"
-                    className="comment-toggle-btn"
-                    onClick={() => setIsMobileCommentSheetOpen(false)}
-                  >
-                    Close
-                  </button>
-                </div>
-                <div className="mobile-comment-sheet-content">
-                  {parseCommentHtml(currentQuestion?.comment || "")}
-                </div>
-              </section>
             </div>
           )}
         </main>
@@ -1149,11 +1173,7 @@ export default function HomePage() {
                 type="button"
                 className="fs-nav-btn prev"
                 disabled={(currentExam?.questions.length || 0) <= 1}
-                onClick={() =>
-                  setQuestionIndex((prev) =>
-                    prev <= 0 ? (currentExam?.questions.length || 1) - 1 : prev - 1,
-                  )
-                }
+                onClick={() => navigateQuestionByDelta(-1)}
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
                   <path
@@ -1171,6 +1191,8 @@ export default function HomePage() {
                 onWheel={handleFsImageWheel}
                 onMouseDown={handleFsImageMouseDown}
                 onDoubleClick={handleFsImageDoubleClick}
+                onTouchStart={handleQuestionTouchStart}
+                onTouchEnd={handleQuestionTouchEnd}
               >
                 <img
                   src={currentQuestion.image}
@@ -1197,11 +1219,7 @@ export default function HomePage() {
                 type="button"
                 className="fs-nav-btn next"
                 disabled={(currentExam?.questions.length || 0) <= 1}
-                onClick={() =>
-                  setQuestionIndex((prev) =>
-                    prev >= (currentExam?.questions.length || 1) - 1 ? 0 : prev + 1,
-                  )
-                }
+                onClick={() => navigateQuestionByDelta(1)}
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
                   <path
@@ -1378,20 +1396,28 @@ export default function HomePage() {
                 <button
                   type="button"
                   className="drive-search-btn drive-search-clear"
-                  onClick={() => {
-                    const currentCrumb = breadcrumbs[breadcrumbs.length - 1] || {
-                      name: "Drive Dataset",
-                    };
-                    setDriveSearchInput("");
-                    setActiveSearchQuery("");
-                    loadFolder(currentCrumb.id, currentCrumb.name, [...breadcrumbs]);
-                  }}
+                  onClick={clearDriveSearch}
                   disabled={loadingFiles || loadingZip}
                 >
                   Clear
                 </button>
               )}
             </div>
+
+            {activeSearchQuery && (
+              <div className="drive-active-search">
+                <span className="drive-active-search-label">Searching:</span>
+                <span className="drive-active-search-keyword">{activeSearchQuery}</span>
+                <button
+                  type="button"
+                  className="drive-active-search-clear"
+                  onClick={clearDriveSearch}
+                  disabled={loadingFiles || loadingZip}
+                >
+                  Clear filter
+                </button>
+              </div>
+            )}
 
             {/* Error Message Container (optional space) */}
             {error && (
