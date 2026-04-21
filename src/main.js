@@ -3,6 +3,9 @@ const path = require('path');
 const AdmZip = require('adm-zip');
 const fs = require('fs');
 
+const IS_LINUX = process.platform === 'linux';
+const AUTO_UPDATE_ENABLED = !IS_LINUX;
+
 // Enable hot reload in development mode
 if (!app.isPackaged) {
   try {
@@ -506,74 +509,86 @@ ipcMain.handle('open-exam-folder', async () => {
   shell.openPath(examDataPath);
 });
 
-// --- Auto Updater Logic ---
-const { autoUpdater } = require('electron-updater');
-const log = require('electron-log');
+// --- Auto Updater Logic (disabled on Linux) ---
+let autoUpdater = null;
+let log = null;
 
-// Configure logging
-autoUpdater.logger = log;
-autoUpdater.logger.transports.file.level = 'info';
-autoUpdater.autoDownload = true;
-autoUpdater.allowPrerelease = true;
-log.info('App starting...');
+if (AUTO_UPDATE_ENABLED) {
+  ({ autoUpdater } = require('electron-updater'));
+  log = require('electron-log');
 
-function sendStatusToWindow(text) {
-  log.info(text);
-  if (mainWindow) {
-    mainWindow.webContents.send('update-message', text);
+  autoUpdater.logger = log;
+  autoUpdater.logger.transports.file.level = 'info';
+  autoUpdater.autoDownload = true;
+  autoUpdater.allowPrerelease = true;
+  log.info('App starting...');
+
+  function sendStatusToWindow(text) {
+    log.info(text);
+    if (mainWindow) {
+      mainWindow.webContents.send('update-message', text);
+    }
   }
+
+  autoUpdater.on('checking-for-update', () => {
+    sendStatusToWindow('Checking for updates...');
+  });
+
+  autoUpdater.on('update-available', (info) => {
+    sendStatusToWindow('Update available.');
+    if (mainWindow) {
+      mainWindow.webContents.send('update-available', info);
+    }
+  });
+
+  autoUpdater.on('update-not-available', () => {
+    sendStatusToWindow('Update not available.');
+  });
+
+  autoUpdater.on('error', (err) => {
+    sendStatusToWindow('Error in auto-updater. ' + err);
+  });
+
+  autoUpdater.on('download-progress', (progressObj) => {
+    let log_message = "Download speed: " + progressObj.bytesPerSecond;
+    log_message = log_message + ' - Downloaded ' + progressObj.percent + '%';
+    log_message = log_message + ' (' + progressObj.transferred + "/" + progressObj.total + ')';
+    sendStatusToWindow(log_message);
+
+    if (mainWindow) {
+      mainWindow.webContents.send('update-download-progress', progressObj);
+    }
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    sendStatusToWindow('Update downloaded');
+    if (mainWindow) {
+      mainWindow.webContents.send('update-downloaded', info);
+    }
+  });
+
+  app.on('ready', () => {
+    if (app.isPackaged) {
+      autoUpdater.checkForUpdatesAndNotify();
+    }
+  });
 }
 
-autoUpdater.on('checking-for-update', () => {
-  sendStatusToWindow('Checking for updates...');
-});
-
-autoUpdater.on('update-available', (info) => {
-  sendStatusToWindow('Update available.');
-  if (mainWindow) {
-    mainWindow.webContents.send('update-available', info);
-  }
-});
-
-autoUpdater.on('update-not-available', (info) => {
-  sendStatusToWindow('Update not available.');
-});
-
-autoUpdater.on('error', (err) => {
-  sendStatusToWindow('Error in auto-updater. ' + err);
-});
-
-autoUpdater.on('download-progress', (progressObj) => {
-  let log_message = "Download speed: " + progressObj.bytesPerSecond;
-  log_message = log_message + ' - Downloaded ' + progressObj.percent + '%';
-  log_message = log_message + ' (' + progressObj.transferred + "/" + progressObj.total + ')';
-  sendStatusToWindow(log_message);
-  
-  if (mainWindow) {
-    mainWindow.webContents.send('update-download-progress', progressObj);
-  }
-});
-
-autoUpdater.on('update-downloaded', (info) => {
-  sendStatusToWindow('Update downloaded');
-  if (mainWindow) {
-    mainWindow.webContents.send('update-downloaded', info);
-  }
-});
-
 ipcMain.handle('check-for-update', () => {
+  if (!AUTO_UPDATE_ENABLED) {
+    return { disabled: true };
+  }
   if (!app.isPackaged) {
-    return;
+    return { skipped: true };
   }
   autoUpdater.checkForUpdatesAndNotify();
+  return { ok: true };
 });
 
 ipcMain.handle('restart-app', () => {
-  autoUpdater.quitAndInstall(false, true);
-});
-
-app.on('ready', () => {
-  if (app.isPackaged) {
-    autoUpdater.checkForUpdatesAndNotify();
+  if (!AUTO_UPDATE_ENABLED) {
+    return { disabled: true };
   }
+  autoUpdater.quitAndInstall(false, true);
+  return { ok: true };
 });
